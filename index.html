@@ -48,7 +48,7 @@
             max-width: 400px;
             width: 100%;
             text-align: center;
-            margin: 0; /* Override card margin-bottom when centered */
+            margin: 0 auto; /* Center horizontally and override card margin-bottom */
         }
         body.auth-mode #auth-section h2 {
             font-size: 2rem;
@@ -163,19 +163,27 @@
         /* Toast Notification Styles */
         .toast {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
             background: #1e293b;
             color: white;
-            padding: 12px 24px;
-            border-radius: 4px;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            padding: 2rem 4rem;
+            border-radius: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
             z-index: 1000;
-            transform: translateY(200%);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            font-size: 1.5rem;
+            font-weight: 600;
+            text-align: center;
+            min-width: 350px;
         }
         .toast.show {
-            transform: translateY(0);
+            transform: translate(-50%, -50%) scale(1);
+            opacity: 1;
+            visibility: visible;
         }
 
         /* Pagination Styles */
@@ -255,6 +263,15 @@
             <div class="form-group">
                 <label>Scanner Name</label>
                 <input type="text" id="username" required placeholder="Enter your name" autofocus>
+            </div>
+            <div class="form-group">
+                <label>Shift</label>
+                <select id="shift" required>
+                    <option value="" disabled selected>Select Shift</option>
+                    <option value="1st Shift">1st Shift</option>
+                    <option value="2nd Shift">2nd Shift</option>
+                    <option value="3rd Shift">3rd Shift</option>
+                </select>
             </div>
             <button type="submit" class="btn btn-primary" id="auth-btn" style="width: 100%;">Login / Register</button>
         </form>
@@ -336,6 +353,7 @@
                             <tr>
                                 <th onclick="sortBy('date')">Date</th>
                                 <th onclick="sortBy('time')">Time</th>
+                                <th onclick="sortBy('shift')">Shift</th>
                                 <th onclick="sortBy('barcode')">Barcode</th>
                                 <th onclick="sortBy('qty')">Qty</th>
                                 <th onclick="sortBy('box')">Box #</th>
@@ -375,6 +393,7 @@
     // State Management
     let currentUser = localStorage.getItem('scan_excess_user') || null;
     let entries = JSON.parse(localStorage.getItem('scan_excess_data')) || [];
+    let currentShift = localStorage.getItem('scan_excess_shift') || null;
     let currentPage = 1;
     let rowsPerPage = 10;
     let currentSortColumn = 'id';
@@ -416,7 +435,7 @@
         document.body.classList.remove('auth-mode');
         authSection.classList.add('hidden');
         appSection.classList.remove('hidden');
-        displayScanner.textContent = `Scanner: ${currentUser} | `;
+        displayScanner.textContent = `Scanner: ${currentUser} (${currentShift}) | `;
         renderTable();
     }
 
@@ -424,16 +443,21 @@
     authForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const name = document.getElementById('username').value.trim();
-        if (name) {
+        const shift = document.getElementById('shift').value;
+        if (name && shift) {
             currentUser = name;
+            currentShift = shift;
             localStorage.setItem('scan_excess_user', name);
+            localStorage.setItem('scan_excess_shift', shift);
             showApp();
         }
     });
 
     function logout() {
         localStorage.removeItem('scan_excess_user');
+        localStorage.removeItem('scan_excess_shift');
         currentUser = null;
+        currentShift = null;
         showLogin();
     }
 
@@ -467,7 +491,8 @@
             box: document.getElementById('box').value,
             pallet: document.getElementById('pallet').value,
             remarks: remarks,
-            scanner: currentUser
+            scanner: currentUser,
+            shift: currentShift
         };
         
         let message = 'Entry added successfully!';
@@ -558,6 +583,7 @@
             row.innerHTML = `
                 <td data-label="Date">${item.date}</td>
                 <td data-label="Time">${item.time}</td>
+                <td data-label="Shift">${item.shift || '-'}</td>
                 <td data-label="Barcode">${item.barcode}</td>
                 <td data-label="Qty">${item.qty}</td>
                 <td data-label="Box #">${item.box}</td>
@@ -696,13 +722,33 @@
             return;
         }
 
-        const headers = ['Line #', 'Date', 'Time', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
+        const choice = prompt('Export options:\n1. Export ALL data\n2. Export by Pallet #\n\nEnter 1 or 2:');
+        
+        let dataToExport = entries;
+        let filenameSuffix = 'all';
+
+        if (choice === '2') {
+            const palletNum = prompt('Enter Pallet # to export:');
+            if (!palletNum) return;
+            dataToExport = entries.filter(item => item.pallet === palletNum);
+            filenameSuffix = `pallet_${palletNum}`;
+            
+            if (dataToExport.length === 0) {
+                alert(`No records found for Pallet #${palletNum}`);
+                return;
+            }
+        } else if (choice !== '1') {
+            return; // Exit if user cancels or enters invalid option
+        }
+
+        const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
         const csvRows = [
             headers.join(','),
-            ...entries.map((row, index) => [
+            ...dataToExport.map((row, index) => [
                 index + 1,
                 row.date,
                 row.time,
+                row.shift || '-',
                 `"${row.barcode}"`, // Wrap barcode in quotes to prevent scientific notation in Excel
                 row.qty,
                 `"${row.box}"`,
@@ -718,7 +764,7 @@
         const link = document.createElement('a');
         
         link.setAttribute('href', url);
-        link.setAttribute('download', `excess_data_${new Date().toISOString().split('T')[0]}.csv`);
+        link.setAttribute('download', `excess_data_${filenameSuffix}_${new Date().toISOString().split('T')[0]}.csv`);
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
