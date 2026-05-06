@@ -240,6 +240,28 @@
             font-weight: 700;
             color: var(--primary-color);
         }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+        }
+        .modal-content h3 { margin-top: 0; }
+        .radio-group { margin: 1.5rem 0; display: flex; flex-direction: column; gap: 0.75rem; }
+        .radio-option { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+        .radio-option input { width: auto; }
     </style>
 </head>
 <body>
@@ -302,7 +324,12 @@
                             <input type="time" id="time" required>
                         </div>
                         <div class="form-group">
-                            <label>Remarks</label>
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                Remarks
+                                <span style="font-size: 0.75rem; font-weight: normal; display: flex; align-items: center; gap: 4px;">
+                                    <input type="checkbox" id="lock-remarks" style="width: auto;"> Lock
+                                </span>
+                            </label>
                             <select id="remarks" required>
                                 <option value="Excess">Excess</option>
                                 <option value="Stocks Transfer">Stocks Transfer</option>
@@ -383,6 +410,30 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div id="export-modal" class="modal-overlay">
+    <div class="modal-content card">
+        <h3>Export Data to CSV</h3>
+        <div class="radio-group">
+            <label class="radio-option">
+                <input type="radio" name="export-type" value="all" checked onchange="togglePalletSelect()"> 
+                Export All Stored Data
+            </label>
+            <label class="radio-option">
+                <input type="radio" name="export-type" value="pallet" onchange="togglePalletSelect()"> 
+                Filter by Pallet #
+            </label>
+            <select id="pallet-export-select" disabled style="margin-top: 5px;">
+                <option value="">-- Select Pallet --</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="closeExportModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="processExport()">Download CSV</button>
         </div>
     </div>
 </div>
@@ -546,7 +597,7 @@
         });
 
         // 2. Filter entries based on search term (applied to date-filtered results)
-        const filteredEntries = entries.filter(item => 
+        const filteredEntries = dateFilteredEntries.filter(item => 
             String(item.barcode).toLowerCase().includes(searchTerm) || 
             String(item.box).toLowerCase().includes(searchTerm)
         );
@@ -707,11 +758,16 @@
     }
 
     function resetForm() {
+        const remarksVal = document.getElementById('remarks').value;
+        const isLocked = document.getElementById('lock-remarks').checked;
+        
         dataForm.reset();
         document.getElementById('edit-id').value = '';
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
         setCurrentDateTime();
+        
+        if (isLocked) document.getElementById('remarks').value = remarksVal;
         document.getElementById('barcode').focus();
     }
 
@@ -722,23 +778,44 @@
             return;
         }
 
-        const choice = prompt('Export options:\n1. Export ALL data\n2. Export by Pallet #\n\nEnter 1 or 2:');
+        const modal = document.getElementById('export-modal');
+        const select = document.getElementById('pallet-export-select');
         
+        // Populate unique pallets
+        const uniquePallets = [...new Set(entries.map(e => e.pallet))].sort();
+        select.innerHTML = '<option value="">-- Select Pallet --</option>';
+        uniquePallets.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            select.appendChild(opt);
+        });
+
+        modal.style.display = 'flex';
+    }
+
+    function togglePalletSelect() {
+        const type = document.querySelector('input[name="export-type"]:checked').value;
+        document.getElementById('pallet-export-select').disabled = (type === 'all');
+    }
+
+    function closeExportModal() {
+        document.getElementById('export-modal').style.display = 'none';
+    }
+
+    function processExport() {
+        const type = document.querySelector('input[name="export-type"]:checked').value;
         let dataToExport = entries;
         let filenameSuffix = 'all';
 
-        if (choice === '2') {
-            const palletNum = prompt('Enter Pallet # to export:');
-            if (!palletNum) return;
-            dataToExport = entries.filter(item => item.pallet === palletNum);
-            filenameSuffix = `pallet_${palletNum}`;
-            
-            if (dataToExport.length === 0) {
-                alert(`No records found for Pallet #${palletNum}`);
+        if (type === 'pallet') {
+            const palletVal = document.getElementById('pallet-export-select').value;
+            if (!palletVal) {
+                alert('Please select a pallet number');
                 return;
             }
-        } else if (choice !== '1') {
-            return; // Exit if user cancels or enters invalid option
+            dataToExport = entries.filter(item => item.pallet === palletVal);
+            filenameSuffix = `pallet_${palletVal}`;
         }
 
         const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
@@ -769,6 +846,7 @@
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        closeExportModal();
     }
 
     function showToast(message) {
