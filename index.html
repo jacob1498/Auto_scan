@@ -6,20 +6,22 @@
     <title>Scan Excess App</title>
     <style>
         :root {
-            --primary-color: #2563eb;
-            --secondary-color: #64748b;
-            --success-color: #22c55e;
-            --danger-color: #ef4444;
-            --background: #f8fafc;
+            --primary-color: #0073e6; /* Oracle Blue */
+            --secondary-color: #605951;
+            --success-color: #267d3d;
+            --danger-color: #b02b28;
+            --background: #f6f5f4; /* Redwood Canvas */
             --card-bg: #ffffff;
+            --border-color: #dfe0e1;
+            --header-bg: #f9f8f7;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--background);
             margin: 0;
             padding: 20px;
-            color: #1e293b;
+            color: #312d2a;
         }
         /* Auth Mode Specific Styling */
         body.auth-mode {
@@ -40,7 +42,8 @@
             background: var(--card-bg);
             padding: 2rem;
             border-radius: 8px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
             margin-bottom: 2rem;
         }
         /* Specific styles for the auth card */
@@ -72,7 +75,7 @@
         input, select {
             width: 100%;
             padding: 0.75rem;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             box-sizing: border-box;
         }
@@ -108,21 +111,38 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
             background: white;
+            font-size: 0.9rem;
         }
         th, td {
             padding: 10px 8px;
             text-align: left;
-            border-bottom: 1px solid #e2e8f0;
+            border-bottom: 1px solid var(--border-color);
         }
-        th { background: #f1f5f9; }
+        th { 
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            background: var(--header-bg);
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            box-shadow: inset 0 -1px 0 var(--border-color);
+        }
+        tbody tr:nth-child(even) {
+            background-color: #faf9f8;
+        }
+        tbody tr:hover {
+            background-color: #f1f0ee;
+        }
         th[onclick] {
             cursor: pointer;
             user-select: none;
         }
         th[onclick]:hover {
-            background: #e2e8f0;
+            background: #edebe9;
         }
         .sort-asc::after { content: ' ↑'; }
         .sort-desc::after { content: ' ↓'; }
@@ -221,11 +241,11 @@
             margin-bottom: 1.5rem;
         }
         .summary-card {
-            background: #f8fafc;
+            background: #ffffff;
             padding: 1rem;
             border-radius: 6px;
-            border: 1px solid #e2e8f0;
-            border-left: 4px solid var(--primary-color);
+            border: 1px solid var(--border-color);
+            border-top: 3px solid var(--primary-color);
         }
         .summary-card h4 {
             margin: 0;
@@ -262,6 +282,32 @@
         .radio-group { margin: 1.5rem 0; display: flex; flex-direction: column; gap: 0.75rem; }
         .radio-option { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
         .radio-option input { width: auto; }
+
+        /* Storage Indicator Styles */
+        .storage-container {
+            margin-top: 4px;
+            text-align: right;
+        }
+        .storage-text {
+            font-size: 0.7rem;
+            color: var(--secondary-color);
+            display: block;
+            margin-bottom: 2px;
+        }
+        .storage-bar-bg {
+            width: 120px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            display: inline-block;
+            overflow: hidden;
+        }
+        .storage-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--primary-color);
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -303,27 +349,39 @@
     <div id="app-section" class="hidden">
         <div class="header-actions">
             <h2>Excess Data Entry</h2>
-            <div>
-                <span id="display-scanner"></span>
-                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            <div style="display: flex; align-items: center; gap: 1.5rem;">
+                <div class="storage-container">
+                    <span id="storage-text" class="storage-text">Storage: 0%</span>
+                    <div class="storage-bar-bg">
+                        <div id="storage-bar-fill" class="storage-bar-fill"></div>
+                    </div>
+                </div>
+                <div>
+                    <span id="display-scanner"></span>
+                    <button class="btn btn-secondary" onclick="logout()">Logout</button>
+                </div>
             </div>
         </div>
 
         <div class="main-content">
             <!-- Left Side: Form -->
             <div class="card form-side">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="margin: 0; font-size: 1rem;">Data Entry</h3>
+                    <button type="button" id="quick-scan-btn" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="toggleQuickScanMode()">Quick Scan Mode</button>
+                </div>
                 <form id="data-form">
                     <input type="hidden" id="edit-id">
                     <div class="grid-form">
-                        <div class="form-group">
+                        <div class="form-group" id="date-container">
                             <label>Date</label>
                             <input type="date" id="date" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="time-container">
                             <label>Time</label>
                             <input type="time" id="time" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="remarks-container">
                             <label style="display: flex; justify-content: space-between; align-items: center;">
                                 Remarks
                                 <span style="font-size: 0.75rem; font-weight: normal; display: flex; align-items: center; gap: 4px;">
@@ -374,7 +432,7 @@
                         <button class="btn btn-danger" onclick="bulkDeleteByPallet()" title="Bulk Delete by Pallet #">Bulk Delete</button>
                     </div>
                 </div>
-                <div style="overflow-x: auto;">
+                <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
                     <table id="data-table">
                         <thead>
                             <tr>
@@ -452,6 +510,8 @@
     let startDateFilter = '';
     let endDateFilter = '';
     let searchTerm = '';
+    let storageWarningShown = false;
+    let isQuickScanMode = false;
 
     const authSection = document.getElementById('auth-section');
     const appSection = document.getElementById('app-section');
@@ -468,6 +528,7 @@
             showLogin();
         }
         setCurrentDateTime();
+        updateStorageUsage();
     }
 
     function setCurrentDateTime() {
@@ -509,6 +570,7 @@
         localStorage.removeItem('scan_excess_shift');
         currentUser = null;
         currentShift = null;
+        updateStorageUsage();
         showLogin();
     }
 
@@ -520,6 +582,19 @@
         const remarks = document.getElementById('remarks').value;
         const box = document.getElementById('box').value;
         const pallet = document.getElementById('pallet').value;
+        const barcode = document.getElementById('barcode').value;
+
+        // Prevent duplicate barcode in the same box
+        const isDuplicate = entries.some(item => 
+            item.barcode === barcode && 
+            item.box === box && 
+            item.id !== (entryId ? parseInt(entryId) : null)
+        );
+
+        if (isDuplicate) {
+            alert(`Duplicate Error: Barcode ${barcode} has already been scanned into Box ${box}.`);
+            return;
+        }
 
         // Validation for Stocks Transfer
         if (remarks === 'Stocks Transfer') {
@@ -537,10 +612,10 @@
             id: entryId ? parseInt(entryId) : Date.now(),
             date: document.getElementById('date').value,
             time: document.getElementById('time').value,
-            barcode: document.getElementById('barcode').value,
+            barcode: barcode,
             qty: document.getElementById('qty').value,
-            box: document.getElementById('box').value,
-            pallet: document.getElementById('pallet').value,
+            box: box,
+            pallet: pallet,
             remarks: remarks,
             scanner: currentUser,
             shift: currentShift
@@ -566,6 +641,52 @@
     function saveAndRender() {
         localStorage.setItem('scan_excess_data', JSON.stringify(entries));
         renderTable();
+        updateStorageUsage();
+    }
+
+    function updateStorageUsage() {
+        let totalBytes = 0;
+        let appBytes = 0;
+        const appKeys = ['scan_excess_data', 'scan_excess_user', 'scan_excess_shift'];
+
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            const itemSize = (key.length + value.length) * 2;
+            
+            totalBytes += itemSize;
+            if (appKeys.includes(key)) {
+                appBytes += itemSize;
+            }
+        }
+        
+        const limit = 5 * 1024 * 1024; // Standard 5MB limit
+        const percentageNum = Math.min((totalBytes / limit) * 100, 100);
+        const appPercentage = ((appBytes / limit) * 100).toFixed(1);
+        const totalPercentage = percentageNum.toFixed(1);
+        const usedKB = (totalBytes / 1024).toFixed(1);
+
+        const text = document.getElementById('storage-text');
+        const bar = document.getElementById('storage-bar-fill');
+        
+        if (text && bar) {
+            // Updated UI to show a breakdown: App usage vs Total origin usage
+            text.textContent = `App: ${appPercentage}% | Total: ${totalPercentage}% (${usedKB}KB)`;
+            bar.style.width = totalPercentage + '%';
+            
+            // Visual warning colors
+            if (percentageNum > 90) bar.style.backgroundColor = 'var(--danger-color)'; // High alert (Red)
+            else if (percentageNum > 80) bar.style.backgroundColor = '#f59e0b'; // Warning (Orange) - matches toast
+            else bar.style.backgroundColor = 'var(--primary-color)';
+
+            // Automatic warning message
+            if (percentageNum > 80 && !storageWarningShown) {
+                showToast("⚠️ Storage usage exceeds 80%! Please export and clear data soon.");
+                storageWarningShown = true;
+            } else if (percentageNum <= 80) {
+                storageWarningShown = false;
+            }
+        }
     }
 
     function renderTable() {
@@ -766,8 +887,32 @@
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
         setCurrentDateTime();
+
+        if (isLocked) {
+            document.getElementById('remarks').value = remarksVal;
+            document.getElementById('lock-remarks').checked = true;
+        }
+        document.getElementById('barcode').focus();
+    }
+
+    function toggleQuickScanMode() {
+        isQuickScanMode = !isQuickScanMode;
+        const containers = ['date-container', 'time-container', 'remarks-container'];
         
-        if (isLocked) document.getElementById('remarks').value = remarksVal;
+        containers.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden');
+        });
+
+        const btn = document.getElementById('quick-scan-btn');
+        if (isQuickScanMode) {
+            btn.textContent = 'Standard Mode';
+            btn.classList.replace('btn-secondary', 'btn-primary');
+            document.getElementById('lock-remarks').checked = true;
+        } else {
+            btn.textContent = 'Quick Scan Mode';
+            btn.classList.replace('btn-primary', 'btn-secondary');
+        }
         document.getElementById('barcode').focus();
     }
 
