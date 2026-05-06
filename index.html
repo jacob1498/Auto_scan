@@ -21,6 +21,14 @@
             padding: 20px;
             color: #1e293b;
         }
+        /* Auth Mode Specific Styling */
+        body.auth-mode {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Ensure it takes full viewport height */
+            padding: 0; /* Remove body padding in auth mode */
+        }
 
         .container {
             max-width: 1400px;
@@ -34,6 +42,27 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
             margin-bottom: 2rem;
+        }
+        /* Specific styles for the auth card */
+        body.auth-mode #auth-section {
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            margin: 0; /* Override card margin-bottom when centered */
+        }
+        body.auth-mode #auth-section h2 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        body.auth-mode #auth-section .form-group {
+            margin-bottom: 1.5rem;
+        }
+        body.auth-mode #auth-section input {
+            padding: 1rem;
+            font-size: 1.1rem;
+        }
+        .app-logo {
+            margin-bottom: 1.5rem;
         }
 
         h2 { margin-top: 0; color: var(--primary-color); }
@@ -210,13 +239,24 @@
 <div class="container">
     <!-- Auth Section -->
     <div id="auth-section" class="card">
-        <h2 id="auth-title">Scanner Login</h2>
+        <div class="app-logo">
+            <!-- Simple SVG Icon for a scanner or app logo -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-aperture">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="14.31" y1="8" x2="20.05" y2="17.94"></line>
+                <line x1="9.69" y1="8" x2="2.95" y2="17.94"></line>
+                <line x1="21.53" y1="12" x2="14.31" y2="12"></line>
+                <line x1="2.47" y1="12" x2="9.69" y2="12"></line>
+                <line x1="12" y1="2.05" x2="12" y2="9.31"></line>
+            </svg>
+        </div>
+        <h2 id="auth-title">Scan Excess App Login</h2>
         <form id="auth-form">
             <div class="form-group">
                 <label>Scanner Name</label>
-                <input type="text" id="username" required placeholder="Enter your name">
+                <input type="text" id="username" required placeholder="Enter your name" autofocus>
             </div>
-            <button type="submit" class="btn btn-primary" id="auth-btn">Login / Register</button>
+            <button type="submit" class="btn btn-primary" id="auth-btn" style="width: 100%;">Login / Register</button>
         </form>
     </div>
 
@@ -281,11 +321,11 @@
                 <div id="summary-section" class="summary-grid"></div>
 
                 <div class="header-actions">
-                    <h3>Stored Entries</h3>
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <input type="date" id="start-date-filter" onchange="handleDateRangeChange()" title="Start Date" style="padding: 0.5rem; width: 150px; margin-bottom: 0;">
-                        <input type="date" id="end-date-filter" onchange="handleDateRangeChange()" title="End Date" style="padding: 0.5rem; width: 150px; margin-bottom: 0;">
-                        <input type="text" id="search-input" placeholder="Search Barcode or Box #" oninput="handleSearch()" style="padding: 0.5rem; width: 200px; margin-bottom: 0;">
+                    <h3 style="white-space: nowrap; margin-right: 1rem;">Stored Entries</h3>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 1;">
+                        <input type="date" id="start-date-filter" onchange="handleDateRangeChange()" title="Start Date" style="padding: 0.5rem; width: 130px; margin-bottom: 0;">
+                        <input type="date" id="end-date-filter" onchange="handleDateRangeChange()" title="End Date" style="padding: 0.5rem; width: 130px; margin-bottom: 0;">
+                        <input type="text" id="search-input" placeholder="Search Barcode/Box" oninput="handleSearch()" style="padding: 0.5rem; width: 160px; margin-bottom: 0;">
                         <button class="btn btn-primary" onclick="exportToCSV()">Export to CSV</button>
                         <button class="btn btn-danger" onclick="bulkDeleteByPallet()" title="Bulk Delete by Pallet #">Bulk Delete</button>
                     </div>
@@ -367,11 +407,13 @@
     }
 
     function showLogin() {
+        document.body.classList.add('auth-mode');
         authSection.classList.remove('hidden');
         appSection.classList.add('hidden');
     }
 
     function showApp() {
+        document.body.classList.remove('auth-mode');
         authSection.classList.add('hidden');
         appSection.classList.remove('hidden');
         displayScanner.textContent = `Scanner: ${currentUser} | `;
@@ -644,6 +686,7 @@
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
         setCurrentDateTime();
+        document.getElementById('barcode').focus();
     }
 
     // Export Logic
@@ -653,10 +696,11 @@
             return;
         }
 
-        const headers = ['Date', 'Time', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
+        const headers = ['Line #', 'Date', 'Time', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
         const csvRows = [
             headers.join(','),
-            ...entries.map(row => [
+            ...entries.map((row, index) => [
+                index + 1,
                 row.date,
                 row.time,
                 `"${row.barcode}"`, // Wrap barcode in quotes to prevent scientific notation in Excel
