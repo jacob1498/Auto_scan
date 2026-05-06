@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan Excess App</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #22c55e;
+            --danger-color: #ef4444;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background);
+            margin: 0;
+            padding: 20px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 95%;
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            margin-bottom: 2rem;
+        }
+
+        h2 { margin-top: 0; color: var(--primary-color); }
+
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; }
+        input, select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-secondary { background: var(--secondary-color); color: white; }
+        .btn:hover { opacity: 0.9; }
+        
+        .btn-icon {
+            padding: 0.5rem;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .hidden { display: none; }
+
+        .grid-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background: white;
+        }
+        th, td {
+            padding: 10px 8px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        th { background: #f1f5f9; }
+        th[onclick] {
+            cursor: pointer;
+            user-select: none;
+        }
+        th[onclick]:hover {
+            background: #e2e8f0;
+        }
+        .sort-asc::after { content: ' ↑'; }
+        .sort-desc::after { content: ' ↓'; }
+
+        .actions { display: flex; gap: 0.5rem; }
+        .header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { border: 1px solid #ccc; margin-bottom: 5px; }
+            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50%; }
+            td:before {
+                position: absolute; top: 6px; left: 6px; width: 45%; padding-right: 10px;
+                white-space: nowrap; content: attr(data-label); font-weight: bold;
+            }
+        }
+
+        /* Side-by-side Layout Styles */
+        .main-content {
+            display: flex;
+            gap: 1.5rem;
+            align-items: flex-start;
+        }
+        .form-side { flex: 0 0 350px; }
+        .table-side { flex: 1; min-width: 0; }
+
+        @media (max-width: 1000px) {
+            .main-content { flex-direction: column; }
+            .form-side { flex: 1 1 auto; width: 100%; }
+        }
+
+        /* Toast Notification Styles */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #1e293b;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 4px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transform: translateY(200%);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .toast.show {
+            transform: translateY(0);
+        }
+
+        /* Pagination Styles */
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .rows-selector-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .rows-selector-group select {
+            padding: 0.4rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            background: white;
+        }
+
+        /* Summary Section Styles */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .summary-card {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid var(--primary-color);
+        }
+        .summary-card h4 {
+            margin: 0;
+            font-size: 0.75rem;
+            color: var(--secondary-color);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .summary-card p {
+            margin: 0.25rem 0 0;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Auth Section -->
+    <div id="auth-section" class="card">
+        <h2 id="auth-title">Scanner Login</h2>
+        <form id="auth-form">
+            <div class="form-group">
+                <label>Scanner Name</label>
+                <input type="text" id="username" required placeholder="Enter your name">
+            </div>
+            <button type="submit" class="btn btn-primary" id="auth-btn">Login / Register</button>
+        </form>
+    </div>
+
+    <!-- Main App Section -->
+    <div id="app-section" class="hidden">
+        <div class="header-actions">
+            <h2>Excess Data Entry</h2>
+            <div>
+                <span id="display-scanner"></span>
+                <button class="btn btn-secondary" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- Left Side: Form -->
+            <div class="card form-side">
+                <form id="data-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="grid-form">
+                        <div class="form-group">
+                            <label>Date</label>
+                            <input type="date" id="date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Time</label>
+                            <input type="time" id="time" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Remarks</label>
+                            <select id="remarks" required>
+                                <option value="Excess">Excess</option>
+                                <option value="Stocks Transfer">Stocks Transfer</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Barcode</label>
+                            <input type="text" id="barcode" required placeholder="Scan Barcode">
+                        </div>
+                        <div class="form-group">
+                            <label>Quantity</label>
+                            <input type="number" id="qty" required min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Box #</label>
+                            <input type="text" id="box" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Pallet #</label>
+                            <input type="text" id="pallet" required>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <button type="submit" class="btn btn-success" id="save-btn" style="width: 100%; margin-bottom: 0.5rem;">Add Entry</button>
+                        <button type="button" class="btn btn-secondary hidden" id="cancel-btn" onclick="resetForm()" style="width: 100%;">Cancel Edit</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Right Side: Data Table -->
+            <div class="card table-side">
+                <!-- Dynamic Summary Cards -->
+                <div id="summary-section" class="summary-grid"></div>
+
+                <div class="header-actions">
+                    <h3>Stored Entries</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="date" id="start-date-filter" onchange="handleDateRangeChange()" title="Start Date" style="padding: 0.5rem; width: 150px; margin-bottom: 0;">
+                        <input type="date" id="end-date-filter" onchange="handleDateRangeChange()" title="End Date" style="padding: 0.5rem; width: 150px; margin-bottom: 0;">
+                        <input type="text" id="search-input" placeholder="Search Barcode or Box #" oninput="handleSearch()" style="padding: 0.5rem; width: 200px; margin-bottom: 0;">
+                        <button class="btn btn-primary" onclick="exportToCSV()">Export to CSV</button>
+                        <button class="btn btn-danger" onclick="bulkDeleteByPallet()" title="Bulk Delete by Pallet #">Bulk Delete</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table id="data-table">
+                        <thead>
+                            <tr>
+                                <th onclick="sortBy('date')">Date</th>
+                                <th onclick="sortBy('time')">Time</th>
+                                <th onclick="sortBy('barcode')">Barcode</th>
+                                <th onclick="sortBy('qty')">Qty</th>
+                                <th onclick="sortBy('box')">Box #</th>
+                                <th onclick="sortBy('pallet')">Pallet #</th>
+                                <th onclick="sortBy('remarks')">Remarks</th>
+                                <th onclick="sortBy('scanner')">Scanner</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-body"></tbody>
+                    </table>
+                </div>
+                <div class="pagination-container">
+                    <div class="rows-selector-group">
+                        <label>Rows per page:</label>
+                        <select id="rows-per-page" onchange="updateRowsPerPage()">
+                            <option value="5">5</option>
+                            <option value="10" selected>10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select>
+                    </div>
+                    <div class="pagination-controls">
+                        <span id="page-info"></span>
+                        <button id="prev-btn" class="btn btn-secondary" onclick="changePage(-1)" style="padding: 0.4rem 0.8rem;">Prev</button>
+                        <button id="next-btn" class="btn btn-secondary" onclick="changePage(1)" style="padding: 0.4rem 0.8rem;">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+    // State Management
+    let currentUser = localStorage.getItem('scan_excess_user') || null;
+    let entries = JSON.parse(localStorage.getItem('scan_excess_data')) || [];
+    let currentPage = 1;
+    let rowsPerPage = 10;
+    let currentSortColumn = 'id';
+    let currentSortDirection = 'desc';
+    let startDateFilter = '';
+    let endDateFilter = '';
+    let searchTerm = '';
+
+    const authSection = document.getElementById('auth-section');
+    const appSection = document.getElementById('app-section');
+    const authForm = document.getElementById('auth-form');
+    const dataForm = document.getElementById('data-form');
+    const dataBody = document.getElementById('data-body');
+    const displayScanner = document.getElementById('display-scanner');
+
+    // Initialize
+    function init() {
+        if (currentUser) {
+            showApp();
+        } else {
+            showLogin();
+        }
+        setCurrentDateTime();
+    }
+
+    function setCurrentDateTime() {
+        const now = new Date();
+        document.getElementById('date').value = now.toISOString().split('T')[0];
+        document.getElementById('time').value = now.toTimeString().slice(0, 5);
+    }
+
+    function showLogin() {
+        authSection.classList.remove('hidden');
+        appSection.classList.add('hidden');
+    }
+
+    function showApp() {
+        authSection.classList.add('hidden');
+        appSection.classList.remove('hidden');
+        displayScanner.textContent = `Scanner: ${currentUser} | `;
+        renderTable();
+    }
+
+    // Auth Logic
+    authForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const name = document.getElementById('username').value.trim();
+        if (name) {
+            currentUser = name;
+            localStorage.setItem('scan_excess_user', name);
+            showApp();
+        }
+    });
+
+    function logout() {
+        localStorage.removeItem('scan_excess_user');
+        currentUser = null;
+        showLogin();
+    }
+
+    // Data CRUD Logic
+    dataForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const entryId = document.getElementById('edit-id').value;
+        const remarks = document.getElementById('remarks').value;
+        const box = document.getElementById('box').value;
+        const pallet = document.getElementById('pallet').value;
+
+        // Validation for Stocks Transfer
+        if (remarks === 'Stocks Transfer') {
+            if (!box.startsWith('SVI-B')) {
+                alert('Box # must start with "SVI-B" for Stocks Transfer (e.g., SVI-B1)');
+                return;
+            }
+            if (!pallet.startsWith('SVI-P')) {
+                alert('Pallet # must start with "SVI-P" for Stocks Transfer (e.g., SVI-P1)');
+                return;
+            }
+        }
+
+        const newEntry = {
+            id: entryId ? parseInt(entryId) : Date.now(),
+            date: document.getElementById('date').value,
+            time: document.getElementById('time').value,
+            barcode: document.getElementById('barcode').value,
+            qty: document.getElementById('qty').value,
+            box: document.getElementById('box').value,
+            pallet: document.getElementById('pallet').value,
+            remarks: remarks,
+            scanner: currentUser
+        };
+        
+        let message = 'Entry added successfully!';
+
+        if (entryId) {
+            const index = entries.findIndex(item => item.id === parseInt(entryId));
+            entries[index] = newEntry;
+            message = 'Entry updated successfully!';
+        } else {
+            entries.push(newEntry);
+            currentPage = 1; // Return to page 1 to see the newest entry
+        }
+
+        saveAndRender();
+        syncDataToServer(newEntry); // Call sync after saving locally
+        resetForm();
+        showToast(message);
+    });
+
+    function saveAndRender() {
+        localStorage.setItem('scan_excess_data', JSON.stringify(entries));
+        renderTable();
+    }
+
+    function renderTable() {
+        dataBody.innerHTML = '';
+        updateSummary();
+
+        // Update header UI
+        document.querySelectorAll('th[onclick]').forEach(th => {
+            th.classList.remove('sort-asc', 'sort-desc');
+            if (th.getAttribute('onclick').includes(`'${currentSortColumn}'`)) {
+                th.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+            }
+        });
+
+        // 1. Filter entries based on date range
+        const dateFilteredEntries = entries.filter(item => {
+            const itemDate = item.date; // Assuming item.date is in 'YYYY-MM-DD' format
+
+            let isAfterStartDate = true;
+            if (startDateFilter) {
+                isAfterStartDate = itemDate >= startDateFilter;
+            }
+
+            let isBeforeEndDate = true;
+            if (endDateFilter) {
+                isBeforeEndDate = itemDate <= endDateFilter;
+            }
+            return isAfterStartDate && isBeforeEndDate;
+        });
+
+        // 2. Filter entries based on search term (applied to date-filtered results)
+        const filteredEntries = entries.filter(item => 
+            String(item.barcode).toLowerCase().includes(searchTerm) || 
+            String(item.box).toLowerCase().includes(searchTerm)
+        );
+
+        const sortedEntries = [...filteredEntries].sort((a, b) => {
+            let valA = a[currentSortColumn];
+            let valB = b[currentSortColumn];
+
+            if (currentSortColumn === 'qty') {
+                valA = Number(valA);
+                valB = Number(valB);
+            } else {
+                valA = String(valA || '').toLowerCase();
+                valB = String(valB || '').toLowerCase();
+            }
+
+            if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
+            if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        const totalItems = sortedEntries.length;
+        const totalPages = Math.ceil(totalItems / rowsPerPage) || 1;
+
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const start = (currentPage - 1) * rowsPerPage;
+        const end = start + rowsPerPage;
+        const paginatedEntries = sortedEntries.slice(start, end);
+
+        paginatedEntries.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td data-label="Date">${item.date}</td>
+                <td data-label="Time">${item.time}</td>
+                <td data-label="Barcode">${item.barcode}</td>
+                <td data-label="Qty">${item.qty}</td>
+                <td data-label="Box #">${item.box}</td>
+                <td data-label="Pallet #">${item.pallet}</td>
+                <td data-label="Remarks">${item.remarks}</td>
+                <td data-label="Scanner">${item.scanner}</td>
+                <td class="actions">
+                    <button class="btn btn-primary btn-icon" onclick="editEntry(${item.id})" title="Edit">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    </button>
+                    <button class="btn btn-danger btn-icon" onclick="deleteEntry(${item.id})" title="Delete">
+                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                    </button>
+                </td>
+            `;
+            dataBody.appendChild(row);
+        });
+
+        // Update Pagination UI
+        document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages} (${totalItems} items)`;
+        document.getElementById('prev-btn').disabled = currentPage === 1;
+        document.getElementById('next-btn').disabled = currentPage === totalPages || totalItems === 0;
+    }
+
+    function handleDateRangeChange() {
+        startDateFilter = document.getElementById('start-date-filter').value;
+        endDateFilter = document.getElementById('end-date-filter').value;
+        currentPage = 1; // Reset to page 1 when date filter changes
+        renderTable();
+    }
+
+    function bulkDeleteByPallet() {
+        const palletNum = prompt('Enter Pallet # to delete all related records:');
+        if (!palletNum) return;
+
+        if (confirm(`Are you sure you want to delete ALL records for Pallet #${palletNum}?`)) {
+            const countBefore = entries.length;
+            entries = entries.filter(item => item.pallet !== palletNum);
+            const countAfter = entries.length;
+
+            if (countBefore === countAfter) {
+                showToast(`No records found for Pallet #${palletNum}`);
+            } else {
+                saveAndRender();
+                showToast(`Deleted ${countBefore - countAfter} records for Pallet #${palletNum}`);
+            }
+        }
+    }
+
+    function handleSearch() {
+        searchTerm = document.getElementById('search-input').value.toLowerCase();
+        currentPage = 1; // Reset to page 1 when searching
+        renderTable();
+    }
+
+    function updateSummary() {
+        const summaryContainer = document.getElementById('summary-section');
+        if (!summaryContainer) return;
+
+        // Calculate totals grouped by Remarks
+        const totals = entries.reduce((acc, entry) => {
+            const type = entry.remarks || 'Other';
+            acc[type] = (acc[type] || 0) + Number(entry.qty);
+            return acc;
+        }, {});
+
+        summaryContainer.innerHTML = Object.entries(totals).map(([type, total]) => `
+            <div class="summary-card">
+                <h4>Total ${type}</h4>
+                <p>${total.toLocaleString()}</p>
+            </div>
+        `).join('');
+    }
+
+    function sortBy(column) {
+        if (currentSortColumn === column) {
+            currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSortColumn = column;
+            currentSortDirection = 'asc';
+        }
+        renderTable();
+    }
+
+    function changePage(dir) {
+        currentPage += dir;
+        renderTable();
+    }
+
+    function updateRowsPerPage() {
+        rowsPerPage = parseInt(document.getElementById('rows-per-page').value);
+        currentPage = 1;
+        renderTable();
+    }
+
+    function deleteEntry(id) {
+        if (confirm('Are you sure you want to delete this entry?')) {
+            entries = entries.filter(item => item.id !== id);
+            saveAndRender();
+        }
+    }
+
+    function editEntry(id) {
+        const item = entries.find(item => item.id === id);
+        if (item) {
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('date').value = item.date;
+            document.getElementById('time').value = item.time;
+            document.getElementById('barcode').value = item.barcode;
+            document.getElementById('qty').value = item.qty;
+            document.getElementById('box').value = item.box;
+            document.getElementById('pallet').value = item.pallet;
+            document.getElementById('remarks').value = item.remarks;
+            
+            document.getElementById('save-btn').textContent = 'Update Entry';
+            document.getElementById('cancel-btn').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    }
+
+    function resetForm() {
+        dataForm.reset();
+        document.getElementById('edit-id').value = '';
+        document.getElementById('save-btn').textContent = 'Add Entry';
+        document.getElementById('cancel-btn').classList.add('hidden');
+        setCurrentDateTime();
+    }
+
+    // Export Logic
+    function exportToCSV() {
+        if (entries.length === 0) {
+            alert('No data to export');
+            return;
+        }
+
+        const headers = ['Date', 'Time', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
+        const csvRows = [
+            headers.join(','),
+            ...entries.map(row => [
+                row.date,
+                row.time,
+                `"${row.barcode}"`, // Wrap barcode in quotes to prevent scientific notation in Excel
+                row.qty,
+                `"${row.box}"`,
+                `"${row.pallet}"`,
+                `"${row.remarks}"`,
+                row.scanner
+            ].join(','))
+        ];
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        link.setAttribute('href', url);
+        link.setAttribute('download', `excess_data_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // Sync Logic (Conceptual - you need a server-side endpoint)
+    async function syncDataToServer(dataToSync) {
+        // Replace with your actual Google Apps Script Web App URL or your backend API endpoint
+        const SERVER_API_URL = 'YOUR_SERVER_API_ENDPOINT_HERE';
+
+        if (SERVER_API_URL === 'YOUR_SERVER_API_ENDPOINT_HERE') {
+            console.warn('SERVER_API_URL is not configured. Data will only be saved locally.');
+            return;
+        }
+
+        try {
+            const response = await fetch(SERVER_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(dataToSync),
+            });
+
+            const result = await response.json();
+            console.log('Server response:', result);
+        } catch (error) {
+            console.error('Error syncing data to server:', error);
+        }
+    }
+
+    // Start the app
+    init();
+</script>
+
+</body>
+</html>
