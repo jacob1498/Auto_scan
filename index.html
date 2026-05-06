@@ -283,6 +283,20 @@
         .radio-option { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
         .radio-option input { width: auto; }
 
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .dashboard-stat {
+            padding: 1rem;
+            background: #f9f8f7;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        .dashboard-stat h4 { margin: 0; font-size: 0.75rem; color: var(--secondary-color); text-transform: uppercase; }
+        .dashboard-stat p { margin: 0.5rem 0 0 0; font-size: 1.25rem; font-weight: 700; color: var(--primary-color); }
+
         /* Storage Indicator Styles */
         .storage-container {
             margin-top: 4px;
@@ -358,6 +372,7 @@
                 </div>
                 <div>
                     <span id="display-scanner"></span>
+                    <button class="btn btn-primary" onclick="openDashboard()" style="margin-right: 0.5rem;">Dashboard</button>
                     <button class="btn btn-secondary" onclick="logout()">Logout</button>
                 </div>
             </div>
@@ -492,6 +507,19 @@
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
             <button class="btn btn-secondary" onclick="closeExportModal()">Cancel</button>
             <button class="btn btn-primary" onclick="processExport()">Download CSV</button>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Modal -->
+<div id="dashboard-modal" class="modal-overlay">
+    <div class="modal-content card" style="max-width: 600px;">
+        <h3 style="color: var(--primary-color); border-bottom: 2px solid var(--background); padding-bottom: 0.5rem;">Quick Dashboard</h3>
+        <div id="dashboard-stats" class="dashboard-grid">
+            <!-- Dynamic Content -->
+        </div>
+        <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+            <button class="btn btn-primary" onclick="closeDashboard()">Close Dashboard</button>
         </div>
     </div>
 </div>
@@ -914,6 +942,44 @@
             btn.classList.replace('btn-primary', 'btn-secondary');
         }
         document.getElementById('barcode').focus();
+    }
+
+    function openDashboard() {
+        updateDashboardContent();
+        document.getElementById('dashboard-modal').style.display = 'flex';
+    }
+
+    function closeDashboard() {
+        document.getElementById('dashboard-modal').style.display = 'none';
+    }
+
+    function updateDashboardContent() {
+        const statsContainer = document.getElementById('dashboard-stats');
+        const totalEntries = entries.length;
+        const totalQty = entries.reduce((sum, e) => sum + Number(e.qty), 0);
+        
+        const shiftData = entries.reduce((acc, e) => {
+            const s = e.shift || 'Unknown';
+            acc[s] = (acc[s] || 0) + Number(e.qty);
+            return acc;
+        }, {});
+
+        const remarksData = entries.reduce((acc, e) => {
+            const r = e.remarks || 'Other';
+            acc[r] = (acc[r] || 0) + Number(e.qty);
+            return acc;
+        }, {});
+
+        statsContainer.innerHTML = `
+            <div class="dashboard-stat"><h4>Total Entries</h4><p>${totalEntries}</p></div>
+            <div class="dashboard-stat"><h4>Total Quantity</h4><p>${totalQty.toLocaleString()}</p></div>
+            <div class="dashboard-stat" style="grid-column: span 2;">
+                <h4>Shift Performance (Qty)</h4>
+                <div style="margin-top: 5px; font-size: 0.85rem;">
+                    ${Object.entries(shiftData).map(([s, q]) => `<div>${s}: <strong>${q.toLocaleString()}</strong></div>`).join('')}
+                </div>
+            </div>
+        `;
     }
 
     // Export Logic
