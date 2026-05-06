@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scan Excess App</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --primary-color: #0073e6; /* Oracle Blue */
@@ -513,10 +514,13 @@
 
 <!-- Dashboard Modal -->
 <div id="dashboard-modal" class="modal-overlay">
-    <div class="modal-content card" style="max-width: 600px;">
+    <div class="modal-content card" style="max-width: 800px;">
         <h3 style="color: var(--primary-color); border-bottom: 2px solid var(--background); padding-bottom: 0.5rem;">Quick Dashboard</h3>
         <div id="dashboard-stats" class="dashboard-grid">
             <!-- Dynamic Content -->
+        </div>
+        <div style="margin-top: 1.5rem; height: 300px;">
+            <canvas id="trendsChart"></canvas>
         </div>
         <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
             <button class="btn btn-primary" onclick="closeDashboard()">Close Dashboard</button>
@@ -540,6 +544,7 @@
     let searchTerm = '';
     let storageWarningShown = false;
     let isQuickScanMode = false;
+    let trendsChart = null;
 
     const authSection = document.getElementById('auth-section');
     const appSection = document.getElementById('app-section');
@@ -980,6 +985,39 @@
                 </div>
             </div>
         `;
+
+        // Prepare Trend Data (Count per Date)
+        const trends = entries.reduce((acc, e) => {
+            acc[e.date] = (acc[e.date] || 0) + 1;
+            return acc;
+        }, {});
+
+        const sortedDates = Object.keys(trends).sort();
+        const counts = sortedDates.map(date => trends[date]);
+
+        // Render Chart
+        const ctx = document.getElementById('trendsChart').getContext('2d');
+        if (trendsChart) trendsChart.destroy();
+
+        trendsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: sortedDates,
+                datasets: [{
+                    label: 'Scan Volume',
+                    data: counts,
+                    borderColor: '#0073e6',
+                    backgroundColor: 'rgba(0, 115, 230, 0.1)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
     }
 
     // Export Logic
