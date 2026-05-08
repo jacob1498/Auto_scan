@@ -1075,7 +1075,7 @@
                 row.date,
                 row.time,
                 row.shift || '-',
-                `"${row.barcode}"`, // Wrap barcode in quotes to prevent scientific notation in Excel
+                `="\t${row.barcode}"`, // Use formula syntax with a tab to force Excel to treat as text
                 row.qty,
                 `"${row.box}"`,
                 `"${row.pallet}"`,
