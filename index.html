@@ -407,7 +407,12 @@
                             <select id="remarks" required>
                                 <option value="Excess">Excess</option>
                                 <option value="Stocks Transfer">Stocks Transfer</option>
+                                <option value="RTV">RTV</option>
                             </select>
+                        </div>
+                        <div class="form-group hidden" id="expiry-container">
+                            <label>Expiration Date</label>
+                            <input type="month" id="expiry-date">
                         </div>
                         <div class="form-group">
                             <label>Barcode</label>
@@ -460,6 +465,7 @@
                                 <th onclick="sortBy('box')">Box #</th>
                                 <th onclick="sortBy('pallet')">Pallet #</th>
                                 <th onclick="sortBy('remarks')">Remarks</th>
+                                <th onclick="sortBy('expiryDate')">Expiry</th>
                                 <th onclick="sortBy('scanner')">Scanner</th>
                                 <th>Actions</th>
                             </tr>
@@ -570,6 +576,16 @@
         document.getElementById('time').value = now.toTimeString().slice(0, 5);
     }
 
+    // Toggle Expiration Date field based on Remarks
+    document.getElementById('remarks').addEventListener('change', function() {
+        const expiryContainer = document.getElementById('expiry-container');
+        if (this.value === 'RTV') {
+            expiryContainer.classList.remove('hidden');
+        } else {
+            expiryContainer.classList.add('hidden');
+        }
+    });
+
     function showLogin() {
         document.body.classList.add('auth-mode');
         authSection.classList.remove('hidden');
@@ -616,6 +632,13 @@
         const box = document.getElementById('box').value;
         const pallet = document.getElementById('pallet').value;
         const barcode = document.getElementById('barcode').value;
+        const expiryInput = document.getElementById('expiry-date').value;
+
+        // Format expiry to YYYY-MM-01 if provided
+        let expiryDate = '';
+        if (remarks === 'RTV' && expiryInput) {
+            expiryDate = `${expiryInput}-01`;
+        }
 
         // Prevent duplicate barcode in the same box
         const isDuplicate = entries.some(item => 
@@ -650,6 +673,7 @@
             box: box,
             pallet: pallet,
             remarks: remarks,
+            expiryDate: expiryDate,
             scanner: currentUser,
             shift: currentShift
         };
@@ -794,6 +818,7 @@
                 <td data-label="Box #">${item.box}</td>
                 <td data-label="Pallet #">${item.pallet}</td>
                 <td data-label="Remarks">${item.remarks}</td>
+                <td data-label="Expiry">${item.expiryDate || '-'}</td>
                 <td data-label="Scanner">${item.scanner}</td>
                 <td class="actions">
                     <button class="btn btn-primary btn-icon" onclick="editEntry(${item.id})" title="Edit">
@@ -904,6 +929,14 @@
             document.getElementById('box').value = item.box;
             document.getElementById('pallet').value = item.pallet;
             document.getElementById('remarks').value = item.remarks;
+
+            const expiryContainer = document.getElementById('expiry-container');
+            if (item.remarks === 'RTV' && item.expiryDate) {
+                expiryContainer.classList.remove('hidden');
+                document.getElementById('expiry-date').value = item.expiryDate.substring(0, 7); // Get YYYY-MM
+            } else {
+                expiryContainer.classList.add('hidden');
+            }
             
             document.getElementById('save-btn').textContent = 'Update Entry';
             document.getElementById('cancel-btn').classList.remove('hidden');
@@ -919,18 +952,20 @@
         document.getElementById('edit-id').value = '';
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
+        document.getElementById('expiry-container').classList.add('hidden');
         setCurrentDateTime();
 
         if (isLocked) {
             document.getElementById('remarks').value = remarksVal;
             document.getElementById('lock-remarks').checked = true;
+            if (remarksVal === 'RTV') document.getElementById('expiry-container').classList.remove('hidden');
         }
         document.getElementById('barcode').focus();
     }
 
     function toggleQuickScanMode() {
         isQuickScanMode = !isQuickScanMode;
-        const containers = ['date-container', 'time-container', 'remarks-container'];
+        const containers = ['date-container', 'time-container', 'remarks-container', 'expiry-container'];
         
         containers.forEach(id => {
             const el = document.getElementById(id);
@@ -1067,7 +1102,7 @@
             filenameSuffix = `pallet_${palletVal}`;
         }
 
-        const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Scanner'];
+        const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Expiry Date', 'Scanner'];
         const csvRows = [
             headers.join(','),
             ...dataToExport.map((row, index) => [
@@ -1080,6 +1115,7 @@
                 `"${row.box}"`,
                 `"${row.pallet}"`,
                 `"${row.remarks}"`,
+                row.expiryDate || '',
                 row.scanner
             ].join(','))
         ];
