@@ -34,9 +34,9 @@
         }
 
         .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            width: 95%;
+            max-width: 100%;
+            margin: 0 10px;
+            width: calc(100% - 20px);
         }
 
         .card {
@@ -179,7 +179,8 @@
             gap: 1.5rem;
             align-items: flex-start;
         }
-        .form-side { flex: 0 0 350px; }
+
+        .form-side { flex: 0 0 400px; }
         .table-side { flex: 1; min-width: 0; }
 
         @media (max-width: 1000px) {
@@ -459,7 +460,7 @@
                         <button class="btn btn-danger" onclick="bulkDeleteByPallet()" title="Bulk Delete by Pallet #">Bulk Delete</button>
                     </div>
                 </div>
-                <div style="overflow-x: auto; max-height: 600px; overflow-y: auto;">
+                <div style="overflow-x: auto;">
                     <table id="data-table">
                         <thead>
                             <tr>
