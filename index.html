@@ -113,12 +113,10 @@
             width: 100%;
             border-collapse: collapse;
             background: white;
-            font-size: 0.9rem;
             font-size: 0.85rem;
             table-layout: fixed;
         }
         th, td {
-            padding: 10px 8px;
             padding: 0 8px;
             text-align: left;
             border-bottom: 1px solid var(--border-color);
@@ -132,7 +130,6 @@
             position: sticky;
             top: 0;
             z-index: 10;
-            background: var(--header-bg);
             background: #f3f2f1;
             color: var(--secondary-color);
             text-transform: uppercase;
@@ -419,10 +416,6 @@
                                 <option value="RTV">RTV</option>
                             </select>
                         </div>
-                        <div class="form-group hidden" id="expiry-container">
-                            <label>Expiration Date</label>
-                            <input type="month" id="expiry-date">
-                        </div>
                         <div class="form-group">
                             <label>Barcode</label>
                             <input type="text" id="barcode" required placeholder="Scan Barcode">
@@ -430,6 +423,10 @@
                         <div class="form-group">
                             <label>Quantity</label>
                             <input type="number" id="qty" required min="1">
+                        </div>
+                        <div class="form-group hidden" id="expiry-container">
+                            <label>Expiration Date</label>
+                            <input type="month" id="expiry-date">
                         </div>
                         <div class="form-group">
                             <label>Box #</label>
@@ -466,17 +463,6 @@
                     <table id="data-table">
                         <thead>
                             <tr>
-                                <th onclick="sortBy('date')">Date</th>
-                                <th onclick="sortBy('time')">Time</th>
-                                <th onclick="sortBy('shift')">Shift</th>
-                                <th onclick="sortBy('barcode')">Barcode</th>
-                                <th onclick="sortBy('qty')">Qty</th>
-                                <th onclick="sortBy('box')">Box #</th>
-                                <th onclick="sortBy('pallet')">Pallet #</th>
-                                <th onclick="sortBy('remarks')">Remarks</th>
-                                <th onclick="sortBy('expiryDate')">Expiry</th>
-                                <th onclick="sortBy('scanner')">Scanner</th>
-                                <th>Actions</th>
                                 <th style="width: 100px;" onclick="sortBy('date')">Date</th>
                                 <th style="width: 80px;" onclick="sortBy('time')">Time</th>
                                 <th style="width: 100px;" onclick="sortBy('shift')">Shift</th>
@@ -498,7 +484,6 @@
                         <label>Rows per page:</label>
                         <select id="rows-per-page" onchange="updateRowsPerPage()">
                             <option value="5">5</option>
-                            <option value="10" selected>10</option>
                             <option value="10">10</option>
                             <option value="15" selected>15</option>
                             <option value="20">20</option>
