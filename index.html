@@ -576,101 +576,96 @@
         }
         setCurrentDateTime();
         updateStorageUsage();
+        setupEnterKeyNavigation();
     }
 
     function setCurrentDateTime() {
         const now = new Date();
-        document.getElementById('date').value = now.toISOString().split('T')[0];
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('date').value = `${year}-${month}-${day}`;
         document.getElementById('time').value = now.toTimeString().slice(0, 5);
     }
 
-    // Toggle Expiration Date field based on Remarks
-    document.getElementById('remarks').addEventListener('change', function() {
-        const expiryContainer = document.getElementById('expiry-container');
-        if (this.value === 'RTV') {
-            expiryContainer.classList.remove('hidden');
-        } else {
-            expiryContainer.classList.add('hidden');
-        }
-    });
-
-    function showLogin() {
-        document.body.classList.add('auth-mode');
-        authSection.classList.remove('hidden');
-        appSection.classList.add('hidden');
-    }
-
     function showApp() {
-        document.body.classList.remove('auth-mode');
         authSection.classList.add('hidden');
         appSection.classList.remove('hidden');
-        displayScanner.textContent = `Scanner: ${currentUser} (${currentShift}) | `;
+        document.body.classList.remove('auth-mode');
+        displayScanner.textContent = `Scanner: ${currentUser} (${currentShift})`;
         renderTable();
     }
 
-    // Auth Logic
-    authForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('username').value.trim();
-        const shift = document.getElementById('shift').value;
-        if (name && shift) {
-            currentUser = name;
-            currentShift = shift;
-            localStorage.setItem('scan_excess_user', name);
-            localStorage.setItem('scan_excess_shift', shift);
-            showApp();
-        }
-    });
+    function showLogin() {
+        authSection.classList.remove('hidden');
+        appSection.classList.add('hidden');
+        document.body.classList.add('auth-mode');
+    }
 
     function logout() {
         localStorage.removeItem('scan_excess_user');
         localStorage.removeItem('scan_excess_shift');
-        currentUser = null;
-        currentShift = null;
-        updateStorageUsage();
-        showLogin();
+        location.reload();
     }
 
-    // Data CRUD Logic
-    dataForm.addEventListener('submit', (e) => {
+    // Toggle Expiration Date field based on Remarks
+    function updateExpiryVisibility() {
+        const remarksEl = document.getElementById('remarks');
+        const expiryContainer = document.getElementById('expiry-container');
+        if (remarksEl.value === 'RTV') {
+            expiryContainer.classList.remove('hidden');
+        } else {
+            expiryContainer.classList.add('hidden');
+        }
+    }
+
+    document.getElementById('remarks').addEventListener('change', updateExpiryVisibility);
+
+    // Navigation logic for Enter key to direct focus to the next visible field
+    function setupEnterKeyNavigation() {
+        const fields = ['barcode', 'qty', 'expiry-date', 'box', 'pallet'];
+        fields.forEach((id, index) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    let nextIndex = index + 1;
+                    while (nextIndex < fields.length) {
+                        const nextEl = document.getElementById(fields[nextIndex]);
+                        const container = nextEl.closest('.form-group');
+                        // Focus only if the field's container is not hidden
+                        if (container && !container.classList.contains('hidden')) {
+                            nextEl.focus();
+                            return;
+                        }
+                        nextIndex++;
+                    }
+                    // If no more visible fields, trigger save
+                    if (nextIndex >= fields.length) {
+                        document.getElementById('save-btn').click();
+                    }
+                }
+            });
+        });
+    }
+
+    authForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        currentUser = document.getElementById('username').value;
+        currentShift = document.getElementById('shift').value;
+        localStorage.setItem('scan_excess_user', currentUser);
+        localStorage.setItem('scan_excess_shift', currentShift);
+        showApp();
+    });
+
+    dataForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
         const entryId = document.getElementById('edit-id').value;
-        const remarks = document.getElementById('remarks').value;
-        const box = document.getElementById('box').value;
-        const pallet = document.getElementById('pallet').value;
         const barcode = document.getElementById('barcode').value;
-        const expiryInput = document.getElementById('expiry-date').value;
-
-        // Format expiry to YYYY-MM-01 if provided
-        let expiryDate = '';
-        if (remarks === 'RTV' && expiryInput) {
-            expiryDate = `${expiryInput}-01`;
-        }
-
-        // Prevent duplicate barcode in the same box
-        const isDuplicate = entries.some(item => 
-            item.barcode === barcode && 
-            item.box === box && 
-            item.id !== (entryId ? parseInt(entryId) : null)
-        );
-
-        if (isDuplicate) {
-            alert(`Duplicate Error: Barcode ${barcode} has already been scanned into Box ${box}.`);
-            return;
-        }
-
-        // Validation for Stocks Transfer
-        if (remarks === 'Stocks Transfer') {
-            if (!box.startsWith('SVI-B')) {
-                alert('Box # must start with "SVI-B" for Stocks Transfer (e.g., SVI-B1)');
-                return;
-            }
-            if (!pallet.startsWith('SVI-P')) {
-                alert('Pallet # must start with "SVI-P" for Stocks Transfer (e.g., SVI-P1)');
-                return;
-            }
-        }
+        const remarks = document.getElementById('remarks').value;
+        const expiryDate = document.getElementById('expiry-date').value;
 
         const newEntry = {
             id: entryId ? parseInt(entryId) : Date.now(),
@@ -678,14 +673,14 @@
             time: document.getElementById('time').value,
             barcode: barcode,
             qty: document.getElementById('qty').value,
-            box: box,
-            pallet: pallet,
+            box: document.getElementById('box').value,
+            pallet: document.getElementById('pallet').value,
             remarks: remarks,
-            expiryDate: expiryDate,
+            expiryDate: remarks === 'RTV' ? expiryDate : null,
             scanner: currentUser,
             shift: currentShift
         };
-        
+
         let message = 'Entry added successfully!';
 
         if (entryId) {
@@ -973,7 +968,7 @@
 
     function toggleQuickScanMode() {
         isQuickScanMode = !isQuickScanMode;
-        const containers = ['date-container', 'time-container', 'remarks-container', 'expiry-container'];
+        const containers = ['date-container', 'time-container', 'remarks-container'];
         
         containers.forEach(id => {
             const el = document.getElementById(id);
@@ -985,6 +980,7 @@
             btn.textContent = 'Standard Mode';
             btn.classList.replace('btn-secondary', 'btn-primary');
             document.getElementById('lock-remarks').checked = true;
+            updateExpiryVisibility(); // Ensure expiry shows if RTV was pre-selected
         } else {
             btn.textContent = 'Quick Scan Mode';
             btn.classList.replace('btn-primary', 'btn-secondary');
@@ -1142,44 +1138,6 @@
         closeExportModal();
     }
 
-    function showToast(message) {
-        const toast = document.getElementById('toast');
-        toast.textContent = message;
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
-    }
-
-    // Sync Logic (Conceptual - you need a server-side endpoint)
-    async function syncDataToServer(dataToSync) {
-        // Replace with your actual Google Apps Script Web App URL or your backend API endpoint
-        const SERVER_API_URL = 'YOUR_SERVER_API_ENDPOINT_HERE';
-
-        if (SERVER_API_URL === 'YOUR_SERVER_API_ENDPOINT_HERE') {
-            console.warn('SERVER_API_URL is not configured. Data will only be saved locally.');
-            return;
-        }
-
-        try {
-            const response = await fetch(SERVER_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(dataToSync),
-            });
-
-            const result = await response.json();
-            console.log('Server response:', result);
-        } catch (error) {
-            console.error('Error syncing data to server:', error);
-        }
-    }
-
     // Start the app
     init();
 </script>
-
-</body>
-</html>
