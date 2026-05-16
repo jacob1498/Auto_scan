@@ -285,6 +285,8 @@
             width: 100%;
             max-width: 450px;
             box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1);
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .modal-content h3 { margin-top: 0; }
         .radio-group { margin: 1.5rem 0; display: flex; flex-direction: column; gap: 0.75rem; }
@@ -551,12 +553,27 @@
 <!-- Dashboard Modal -->
 <div id="dashboard-modal" class="modal-overlay">
     <div class="modal-content card" style="max-width: 800px;">
-        <h3 style="color: var(--primary-color); border-bottom: 2px solid var(--background); padding-bottom: 0.5rem;">Quick Dashboard</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--background); padding-bottom: 0.5rem; margin-bottom: 1rem;">
+            <h3 style="color: var(--primary-color); margin: 0;">Quick Dashboard</h3>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Scanner:</label>
+                    <select id="dashboard-scanner-filter" style="width: 120px; padding: 4px;" onchange="updateDashboardContent()"></select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <label style="font-size: 0.85rem; font-weight: 600;">Target/Hr:</label>
+                    <input type="number" id="rtv-target" value="25" style="width: 60px; padding: 4px;" onchange="updateDashboardContent()">
+                </div>
+            </div>
+        </div>
         <div id="dashboard-stats" class="dashboard-grid">
             <!-- Dynamic Content -->
         </div>
-        <div style="margin-top: 1.5rem; height: 300px;">
+        <div style="margin-top: 1.5rem; height: 250px;">
             <canvas id="trendsChart"></canvas>
+        </div>
+        <div style="margin-top: 1.5rem; height: 250px;">
+            <canvas id="hourlyChart"></canvas>
         </div>
         <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
             <button class="btn btn-primary" onclick="closeDashboard()">Close Dashboard</button>
@@ -581,6 +598,7 @@
     let storageWarningShown = false;
     let isQuickScanMode = false;
     let trendsChart = null;
+    let hourlyChart = null;
 
     const authSection = document.getElementById('auth-section');
     const appSection = document.getElementById('app-section');
@@ -1037,6 +1055,15 @@
     }
 
     function openDashboard() {
+        const filterSelect = document.getElementById('dashboard-scanner-filter');
+        const uniqueScanners = [...new Set(entries.map(e => e.scanner))].sort();
+        
+        let options = '<option value="all">All Scanners</option>';
+        uniqueScanners.forEach(scanner => {
+            options += `<option value="${scanner}">${scanner}</option>`;
+        });
+        filterSelect.innerHTML = options;
+
         updateDashboardContent();
         document.getElementById('dashboard-modal').style.display = 'flex';
     }
@@ -1047,10 +1074,35 @@
 
     function updateDashboardContent() {
         const statsContainer = document.getElementById('dashboard-stats');
-        const totalEntries = entries.length;
-        const totalQty = entries.reduce((sum, e) => sum + Number(e.qty), 0);
+        const targetInput = document.getElementById('rtv-target');
+        const scannerFilter = document.getElementById('dashboard-scanner-filter').value;
+        const rtvTarget = targetInput ? parseInt(targetInput.value) : 25;
+
+        // Filter entries based on selected scanner
+        const filteredDashboardEntries = scannerFilter === 'all' 
+            ? entries 
+            : entries.filter(e => e.scanner === scannerFilter);
+
+        const totalEntries = filteredDashboardEntries.length;
+        const totalQty = filteredDashboardEntries.reduce((sum, e) => sum + Number(e.qty), 0);
         
-        const shiftData = entries.reduce((acc, e) => {
+        // Calculate Hourly Stats
+        const hourlyRTV = new Array(24).fill(0);
+        const hourlyTotal = new Array(24).fill(0);
+        
+        filteredDashboardEntries.forEach(e => {
+            if (e.time) {
+                const hour = parseInt(e.time.split(':')[0]);
+                hourlyTotal[hour]++;
+                if (e.remarks === 'RTV') hourlyRTV[hour]++;
+            }
+        });
+
+        const rtvEntries = filteredDashboardEntries.filter(e => e.remarks === 'RTV');
+        const uniqueDays = [...new Set(filteredDashboardEntries.map(e => e.date))].length || 1;
+        const avgRtvHr = (rtvEntries.length / (uniqueDays * 24)).toFixed(1);
+
+        const shiftData = filteredDashboardEntries.reduce((acc, e) => {
             const s = e.shift || 'Unknown';
             acc[s] = (acc[s] || 0) + Number(e.qty);
             return acc;
@@ -1065,6 +1117,10 @@
         statsContainer.innerHTML = `
             <div class="dashboard-stat"><h4>Total Entries</h4><p>${totalEntries}</p></div>
             <div class="dashboard-stat"><h4>Total Quantity</h4><p>${totalQty.toLocaleString()}</p></div>
+            <div class="dashboard-stat">
+                <h4>Avg RTV/Hr</h4>
+                <p>${avgRtvHr} <span style="font-size: 0.8rem; color: ${avgRtvHr >= rtvTarget ? 'var(--success-color)' : 'var(--danger-color)'}"> (vs ${rtvTarget})</span></p>
+            </div>
             <div class="dashboard-stat" style="grid-column: span 2;">
                 <h4>Shift Performance (Qty)</h4>
                 <div style="margin-top: 5px; font-size: 0.85rem;">
@@ -1074,7 +1130,7 @@
         `;
 
         // Prepare Trend Data (Count per Date)
-        const trends = entries.reduce((acc, e) => {
+        const trends = filteredDashboardEntries.reduce((acc, e) => {
             acc[e.date] = (acc[e.date] || 0) + 1;
             return acc;
         }, {});
@@ -1103,6 +1159,47 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+
+        // Hourly Production Chart
+        const ctxHourly = document.getElementById('hourlyChart').getContext('2d');
+        if (hourlyChart) hourlyChart.destroy();
+
+        hourlyChart = new Chart(ctxHourly, {
+            type: 'bar',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                datasets: [
+                    {
+                        label: 'RTV Scans',
+                        data: hourlyRTV,
+                        backgroundColor: 'rgba(176, 43, 40, 0.6)',
+                        borderColor: 'var(--danger-color)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Total Scans',
+                        data: hourlyTotal,
+                        backgroundColor: 'rgba(0, 115, 230, 0.2)',
+                        borderColor: 'var(--primary-color)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'RTV Target',
+                        data: new Array(24).fill(rtvTarget),
+                        type: 'line',
+                        borderColor: '#267d3d',
+                        borderDash: [5, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true } }
             }
         });
     }
