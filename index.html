@@ -451,6 +451,10 @@
                                 <option value="Others">Others</option>
                             </select>
                         </div>
+                        <div class="form-group hidden" id="custom-condition-container">
+                            <label>Specify Condition</label>
+                            <input type="text" id="custom-condition" placeholder="Enter other condition">
+                        </div>
                         <div class="form-group">
                             <label>Box #</label>
                             <input type="text" id="box" required>
@@ -660,13 +664,32 @@
             expiryContainer.classList.add('hidden');
             conditionContainer.classList.add('hidden');
         }
+        updateCustomConditionVisibility();
     }
 
     document.getElementById('remarks').addEventListener('change', updateExpiryVisibility);
 
+    function updateCustomConditionVisibility() {
+        const conditionEl = document.getElementById('item-condition');
+        const customContainer = document.getElementById('custom-condition-container');
+        const customInput = document.getElementById('custom-condition');
+        const isConditionVisible = !document.getElementById('item-condition-container').classList.contains('hidden');
+
+        if (isConditionVisible && conditionEl.value === 'Others') {
+            customContainer.classList.remove('hidden');
+            customInput.required = true;
+        } else {
+            customContainer.classList.add('hidden');
+            customInput.required = false;
+            if (!isConditionVisible) customInput.value = '';
+        }
+    }
+
+    document.getElementById('item-condition').addEventListener('change', updateCustomConditionVisibility);
+
     // Navigation logic for Enter key to direct focus to the next visible field
     function setupEnterKeyNavigation() {
-        const fields = ['barcode', 'qty', 'expiry-date', 'item-condition', 'box', 'pallet'];
+        const fields = ['barcode', 'qty', 'expiry-date', 'item-condition', 'custom-condition', 'box', 'pallet'];
         fields.forEach((id, index) => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -709,7 +732,11 @@
         const barcode = document.getElementById('barcode').value;
         const remarks = document.getElementById('remarks').value;
         const expiryDate = document.getElementById('expiry-date').value;
-        const itemCondition = document.getElementById('item-condition').value;
+        
+        let itemCondition = document.getElementById('item-condition').value;
+        if (itemCondition === 'Others') {
+            itemCondition = document.getElementById('custom-condition').value;
+        }
 
         const newEntry = {
             id: entryId ? parseInt(entryId) : Date.now(),
@@ -990,7 +1017,15 @@
             document.getElementById('box').value = item.box;
             document.getElementById('pallet').value = item.pallet;
             document.getElementById('remarks').value = item.remarks;
-            document.getElementById('item-condition').value = item.itemCondition || '';
+            
+            const standardConditions = ['Good', 'Expired', 'Near Expiry', 'Deformed', 'Dented Box', 'Broken', 'Leaked', 'Contaminated', 'Empty Content', 'Damaged Cap/Parts', 'Incomplete Set', 'Loose Pharma'];
+            if (item.itemCondition && !standardConditions.includes(item.itemCondition)) {
+                document.getElementById('item-condition').value = 'Others';
+                document.getElementById('custom-condition').value = item.itemCondition;
+            } else {
+                document.getElementById('item-condition').value = item.itemCondition || '';
+                document.getElementById('custom-condition').value = '';
+            }
 
             const expiryContainer = document.getElementById('expiry-container');
             const conditionContainer = document.getElementById('item-condition-container');
@@ -1002,6 +1037,7 @@
                 expiryContainer.classList.add('hidden');
                 conditionContainer.classList.add('hidden');
             }
+            updateCustomConditionVisibility();
             
             document.getElementById('save-btn').textContent = 'Update Entry';
             document.getElementById('cancel-btn').classList.remove('hidden');
@@ -1019,6 +1055,7 @@
         document.getElementById('cancel-btn').classList.add('hidden');
         document.getElementById('expiry-container').classList.add('hidden');
         document.getElementById('item-condition-container').classList.add('hidden');
+        document.getElementById('custom-condition-container').classList.add('hidden');
         setCurrentDateTime();
 
         if (isLocked) {
