@@ -306,6 +306,7 @@
         .dashboard-stat p { margin: 0.5rem 0 0 0; font-size: 1.25rem; font-weight: 700; color: var(--primary-color); }
 
         /* Storage Indicator Styles */
+        /* ... (existing storage styles) ... */
         .storage-container {
             margin-top: 4px;
             text-align: right;
@@ -429,6 +430,25 @@
                             <label>Expiration Date</label>
                             <input type="month" id="expiry-date">
                         </div>
+                        <div class="form-group hidden" id="item-condition-container">
+                            <label>Item Condition</label>
+                            <select id="item-condition" required>
+                                <option value="" disabled selected>Select Condition</option>
+                                <option value="Good">Good</option>
+                                <option value="Expired">Expired</option>
+                                <option value="Near Expiry">Near Expiry</option>
+                                <option value="Deformed">Deformed</option>
+                                <option value="Dented Box">Dented Box</option>
+                                <option value="Broken">Broken</option>
+                                <option value="Leaked">Leaked</option>
+                                <option value="Contaminated">Contaminated</option>
+                                <option value="Empty Content">Empty Content</option>
+                                <option value="Damaged Cap/Parts">Damaged Cap/Parts</option>
+                                <option value="Incomplete Set">Incomplete Set</option>
+                                <option value="Loose Pharma">Loose Pharma</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label>Box #</label>
                             <input type="text" id="box" required>
@@ -473,10 +493,12 @@
                                 <th style="width: 100px;" onclick="sortBy('pallet')">Pallet #</th>
                                 <th style="width: 120px;" onclick="sortBy('remarks')">Remarks</th>
                                 <th style="width: 100px;" onclick="sortBy('expiryDate')">Expiry</th>
+                                <th style="width: 120px;" onclick="sortBy('itemCondition')">Condition</th>
                                 <th style="width: 120px;" onclick="sortBy('scanner')">Scanner</th>
                                 <th style="width: 100px;">Actions</th>
                             </tr>
                         </thead>
+                        <!-- ... (existing tbody) ... -->
                         <tbody id="data-body"></tbody>
                     </table>
                 </div>
@@ -612,10 +634,13 @@
     function updateExpiryVisibility() {
         const remarksEl = document.getElementById('remarks');
         const expiryContainer = document.getElementById('expiry-container');
+        const conditionContainer = document.getElementById('item-condition-container');
         if (remarksEl.value === 'RTV') {
             expiryContainer.classList.remove('hidden');
+            conditionContainer.classList.remove('hidden');
         } else {
             expiryContainer.classList.add('hidden');
+            conditionContainer.classList.add('hidden');
         }
     }
 
@@ -623,7 +648,7 @@
 
     // Navigation logic for Enter key to direct focus to the next visible field
     function setupEnterKeyNavigation() {
-        const fields = ['barcode', 'qty', 'expiry-date', 'box', 'pallet'];
+        const fields = ['barcode', 'qty', 'expiry-date', 'item-condition', 'box', 'pallet'];
         fields.forEach((id, index) => {
             const el = document.getElementById(id);
             if (!el) return;
@@ -666,6 +691,7 @@
         const barcode = document.getElementById('barcode').value;
         const remarks = document.getElementById('remarks').value;
         const expiryDate = document.getElementById('expiry-date').value;
+        const itemCondition = document.getElementById('item-condition').value;
 
         const newEntry = {
             id: entryId ? parseInt(entryId) : Date.now(),
@@ -677,6 +703,7 @@
             pallet: document.getElementById('pallet').value,
             remarks: remarks,
             expiryDate: remarks === 'RTV' ? expiryDate : null,
+            itemCondition: itemCondition,
             scanner: currentUser,
             shift: currentShift
         };
@@ -697,6 +724,18 @@
         resetForm();
         showToast(message);
     });
+
+    function showToast(message) {
+        const toast = document.getElementById('toast');
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    function syncDataToServer(entry) {
+        console.log('Data ready for sync:', entry);
+    }
 
     function saveAndRender() {
         localStorage.setItem('scan_excess_data', JSON.stringify(entries));
@@ -822,6 +861,7 @@
                 <td data-label="Pallet #">${item.pallet}</td>
                 <td data-label="Remarks">${item.remarks}</td>
                 <td data-label="Expiry">${item.expiryDate || '-'}</td>
+                <td data-label="Condition">${item.itemCondition || '-'}</td>
                 <td data-label="Scanner">${item.scanner}</td>
                 <td class="actions">
                     <button class="btn btn-primary btn-icon" onclick="editEntry(${item.id})" title="Edit">
@@ -932,13 +972,17 @@
             document.getElementById('box').value = item.box;
             document.getElementById('pallet').value = item.pallet;
             document.getElementById('remarks').value = item.remarks;
+            document.getElementById('item-condition').value = item.itemCondition || '';
 
             const expiryContainer = document.getElementById('expiry-container');
-            if (item.remarks === 'RTV' && item.expiryDate) {
+            const conditionContainer = document.getElementById('item-condition-container');
+            if (item.remarks === 'RTV') {
                 expiryContainer.classList.remove('hidden');
-                document.getElementById('expiry-date').value = item.expiryDate.substring(0, 7); // Get YYYY-MM
+                conditionContainer.classList.remove('hidden');
+                if (item.expiryDate) document.getElementById('expiry-date').value = item.expiryDate.substring(0, 7);
             } else {
                 expiryContainer.classList.add('hidden');
+                conditionContainer.classList.add('hidden');
             }
             
             document.getElementById('save-btn').textContent = 'Update Entry';
@@ -956,12 +1000,16 @@
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
         document.getElementById('expiry-container').classList.add('hidden');
+        document.getElementById('item-condition-container').classList.add('hidden');
         setCurrentDateTime();
 
         if (isLocked) {
             document.getElementById('remarks').value = remarksVal;
             document.getElementById('lock-remarks').checked = true;
-            if (remarksVal === 'RTV') document.getElementById('expiry-container').classList.remove('hidden');
+            if (remarksVal === 'RTV') {
+                document.getElementById('expiry-container').classList.remove('hidden');
+                document.getElementById('item-condition-container').classList.remove('hidden');
+            }
         }
         document.getElementById('barcode').focus();
     }
@@ -1106,7 +1154,7 @@
             filenameSuffix = `pallet_${palletVal}`;
         }
 
-        const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Expiry Date', 'Scanner'];
+        const headers = ['Line #', 'Date', 'Time', 'Shift', 'Barcode', 'Qty', 'Box #', 'Pallet #', 'Remarks', 'Expiry Date', 'Item Condition', 'Scanner'];
         const csvRows = [
             headers.join(','),
             ...dataToExport.map((row, index) => [
@@ -1120,6 +1168,7 @@
                 `"${row.pallet}"`,
                 `"${row.remarks}"`,
                 row.expiryDate || '',
+                `"${row.itemCondition || ''}"`,
                 row.scanner
             ].join(','))
         ];
