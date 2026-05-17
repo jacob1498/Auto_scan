@@ -362,6 +362,10 @@
             <div class="form-group">
                 <label>Access Key</label>
                 <input type="password" id="access-key" required placeholder="Enter access password">
+                <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+                    <input type="checkbox" id="toggle-password" style="width: auto; margin: 0;">
+                    <label for="toggle-password" style="display: inline; margin: 0; font-weight: normal; cursor: pointer; font-size: 0.8rem;">Show Access Key</label>
+                </div>
             </div>
             <div class="form-group">
                 <label>Shift</label>
@@ -670,7 +674,7 @@
     // Simple hardcoded password (for demonstration - change this!)
     // Note: A determined user can find this in the source, 
     // but it stops simple access.
-    const APP_ACCESS_PASSWORD = "MySecretApp2026";
+    const APP_ACCESS_PASSWORD = "MySecretApp2024";
 
     function init() {
         initIndexedDB();
@@ -962,6 +966,12 @@
             }
         });
     }
+
+    // Toggle Access Key visibility
+    document.getElementById('toggle-password').addEventListener('change', function() {
+        const accessKeyInput = document.getElementById('access-key');
+        accessKeyInput.type = this.checked ? 'text' : 'password';
+    });
 
     authForm.addEventListener('submit', function(e) {
         e.preventDefault();
