@@ -421,6 +421,7 @@
                                 <option value="Excess">Excess</option>
                                 <option value="Stocks Transfer">Stocks Transfer</option>
                                 <option value="RTV">RTV</option>
+                                <option value="LBR">LBR</option>
                             </select>
                         </div>
 
@@ -513,6 +514,7 @@
                             <option value="Excess">Excess</option>
                             <option value="Stocks Transfer">Stocks Transfer</option>
                             <option value="RTV">RTV</option>
+                            <option value="LBR">LBR</option>
                         </select>
                         <input type="text" id="search-input" placeholder="Search Barcode/Box" oninput="handleSearch()" style="padding: 0.5rem; width: 160px; margin-bottom: 0;">
                         <div style="display: flex; gap: 4px; background: #f3f2f1; padding: 4px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;">
@@ -762,7 +764,7 @@
         const conditionSelect = document.getElementById('item-condition');
         const tableFilter = document.getElementById('table-remark-filter');
 
-        if (remarksEl.value === 'RTV') {
+        if (remarksEl.value === 'RTV' || remarksEl.value === 'LBR') {
             expiryContainer.classList.remove('hidden');
             conditionContainer.classList.remove('hidden');
             expiryInput.required = true;
@@ -995,14 +997,14 @@
         const entryId = document.getElementById('edit-id').value;
         const barcode = document.getElementById('barcode').value;
         const remarks = document.getElementById('remarks').value;
-        const isRTV = remarks === 'RTV';
+        const isRTVorLBR = remarks === 'RTV' || remarks === 'LBR';
         const expiryInputVal = document.getElementById('expiry-date').value;
-        let expiryDate = isRTV && expiryInputVal ? expiryInputVal : null;
+        let expiryDate = isRTVorLBR && expiryInputVal ? expiryInputVal : null;
         // Standardize to yyyy-mm-dd by appending -01 only if it's currently yyyy-mm
         if (expiryDate && expiryDate.length === 7) expiryDate += '-01';
         
-        let itemCondition = isRTV ? document.getElementById('item-condition').value : null;
-        if (isRTV && itemCondition === 'Others') {
+        let itemCondition = isRTVorLBR ? document.getElementById('item-condition').value : null;
+        if (isRTVorLBR && itemCondition === 'Others') {
             itemCondition = document.getElementById('custom-condition').value;
         }
 
@@ -1315,7 +1317,7 @@
 
             const expiryContainer = document.getElementById('expiry-container');
             const conditionContainer = document.getElementById('item-condition-container');
-            if (item.remarks === 'RTV') {
+            if (item.remarks === 'RTV' || item.remarks === 'LBR') {
                 expiryContainer.classList.remove('hidden');
                 conditionContainer.classList.remove('hidden');
                 if (item.expiryDate) document.getElementById('expiry-date').value = item.expiryDate.substring(0, 7);
@@ -1414,11 +1416,11 @@
             if (e.time) {
                 const hour = parseInt(e.time.split(':')[0]);
                 hourlyTotal[hour]++;
-                if (e.remarks === 'RTV') hourlyRTV[hour]++;
+                if (e.remarks === 'RTV' || e.remarks === 'LBR') hourlyRTV[hour]++;
             }
         });
 
-        const rtvEntries = filteredDashboardEntries.filter(e => e.remarks === 'RTV');
+        const rtvEntries = filteredDashboardEntries.filter(e => e.remarks === 'RTV' || e.remarks === 'LBR');
         const uniqueDays = [...new Set(filteredDashboardEntries.map(e => e.date))].length || 1;
         const avgRtvHr = (rtvEntries.length / (uniqueDays * 24)).toFixed(1);
 
@@ -1438,7 +1440,7 @@
             <div class="dashboard-stat"><h4>Total Entries</h4><p>${totalEntries}</p></div>
             <div class="dashboard-stat"><h4>Total Quantity</h4><p>${totalQty.toLocaleString()}</p></div>
             <div class="dashboard-stat">
-                <h4>Avg RTV/Hr</h4>
+                <h4>Avg RTV/LBR/Hr</h4>
                 <p>${avgRtvHr} <span style="font-size: 0.8rem; color: ${avgRtvHr >= rtvTarget ? 'var(--success-color)' : 'var(--danger-color)'}"> (vs ${rtvTarget})</span></p>
             </div>
             <div class="dashboard-stat" style="grid-column: span 2;">
@@ -1492,7 +1494,7 @@
                 labels: Array.from({length: 24}, (_, i) => `${i}:00`),
                 datasets: [
                     {
-                        label: 'RTV Scans',
+                        label: 'RTV/LBR Scans',
                         data: hourlyRTV,
                         backgroundColor: 'rgba(176, 43, 40, 0.6)',
                         borderColor: 'var(--danger-color)',
