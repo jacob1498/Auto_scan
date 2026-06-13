@@ -632,6 +632,11 @@
             <button class="btn btn-danger" onclick="clearMasterData()" style="grid-column: span 2;">Clear All Master Data</button>
         </div>
 
+        <div class="form-group" style="margin-bottom: 1rem;">
+            <label>Search Master Data</label>
+            <input type="text" id="master-search-input" placeholder="Enter Barcode or Product Name..." oninput="searchMasterData()">
+        </div>
+
         <div id="master-data-sample-area" class="hidden" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
             <h4 style="font-size: 0.75rem; color: var(--secondary-color); text-transform: uppercase; margin-bottom: 0.5rem;">Sample Records (First 10)</h4>
             <div id="master-data-sample-list" style="max-height: 150px; overflow-y: auto; background: white; border: 1px solid #eee; padding: 8px; border-radius: 4px;"></div>
@@ -991,6 +996,8 @@
     }
 
     function openMasterDataModal() {
+        const searchInput = document.getElementById('master-search-input');
+        if (searchInput) searchInput.value = '';
         updateMasterDataModalInfo();
         document.getElementById('master-data-sample-area').classList.add('hidden');
         document.getElementById('master-data-modal').style.display = 'flex';
@@ -1024,11 +1031,13 @@
 
     function viewMasterData() {
         if (!db) return;
+        document.getElementById('master-search-input').value = '';
         const transaction = db.transaction(["masterData"], "readonly");
         const store = transaction.objectStore("masterData");
         const request = store.openCursor();
         const sampleArea = document.getElementById('master-data-sample-area');
         const list = document.getElementById('master-data-sample-list');
+        sampleArea.querySelector('h4').textContent = 'Sample Records (First 10)';
         
         list.innerHTML = '';
         let count = 0;
@@ -1046,6 +1055,51 @@
                 list.innerHTML = '<div style="font-size: 0.8rem; color: #999;">No data found.</div>';
             }
             sampleArea.classList.remove('hidden');
+        };
+    }
+
+    function searchMasterData() {
+        const query = document.getElementById('master-search-input').value.toLowerCase().trim();
+        const sampleArea = document.getElementById('master-data-sample-area');
+        const list = document.getElementById('master-data-sample-list');
+        const title = sampleArea.querySelector('h4');
+        
+        if (!query) {
+            sampleArea.classList.add('hidden');
+            return;
+        }
+
+        if (!db) return;
+        title.textContent = 'Search Results';
+
+        const transaction = db.transaction(["masterData"], "readonly");
+        const store = transaction.objectStore("masterData");
+        const request = store.openCursor();
+        
+        list.innerHTML = '';
+        let count = 0;
+        const limit = 20; // Limit results for performance
+
+        request.onsuccess = function(event) {
+            const cursor = event.target.result;
+            if (cursor && count < limit) {
+                const item = cursor.value;
+                const barcode = String(item.barcode || '').toLowerCase();
+                const name = String(item.name || item.productname || item.description || '').toLowerCase();
+
+                if (barcode.includes(query) || name.includes(query)) {
+                    list.innerHTML += `<div style="font-size: 0.75rem; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+                        <strong>${item.barcode}</strong> - ${item.name || item.productname || 'Unnamed Product'}
+                    </div>`;
+                    count++;
+                }
+                cursor.continue();
+            } else {
+                if (count === 0) {
+                    list.innerHTML = '<div style="font-size: 0.8rem; color: #999;">No matching records found.</div>';
+                }
+                sampleArea.classList.remove('hidden');
+            }
         };
     }
 
