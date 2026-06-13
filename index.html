@@ -335,6 +335,25 @@
             background: var(--primary-color);
             transition: width 0.3s ease, background-color 0.3s ease;
         }
+
+        .master-data-btn-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+        .master-data-count-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--danger-color);
+            color: white;
+            border-radius: 10px;
+            padding: 1px 5px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            border: 1px solid white;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -519,10 +538,9 @@
                         <input type="text" id="search-input" placeholder="Search Barcode/Box" oninput="handleSearch()" style="padding: 0.5rem; width: 160px; margin-bottom: 0;">
                         <div style="display: flex; gap: 4px; background: #f3f2f1; padding: 4px; border-radius: 4px; border: 1px solid var(--border-color); align-items: center;">
                             <input type="file" id="master-data-input" accept=".csv" style="display: none;" onchange="importMasterData(event)">                            <div class="master-data-btn-wrapper">
-                                <button type="button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="document.getElementById('master-data-input').click()" title="Master Data (F2)">Master Data (F2)</button>
+                                <button type="button" class="btn btn-secondary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="openMasterDataModal()" title="Manage Master Data (F2)">Master Data (F2)</button>
                                 <span id="master-data-count-badge" class="master-data-count-badge">0</span>
                             </div>
-                            <button type="button" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="clearMasterData()" title="Clear Master Data">Clear Master</button>
                             <button type="button" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="exportToCSV()" title="Export (F4)">Export (F4)</button>
                             <button type="button" class="btn btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="bulkDeleteByPallet()" title="Bulk Delete (F8)">Bulk Delete (F8)</button>
                         </div>
@@ -600,6 +618,31 @@
     </div>
 </div>
 
+<!-- Master Data Management Modal -->
+<div id="master-data-modal" class="modal-overlay">
+    <div class="modal-content card" style="max-width: 500px;">
+        <h3 style="color: var(--primary-color);">Master Data Management</h3>
+        <div id="master-data-info" style="margin-bottom: 1.5rem; padding: 12px; background: #f9f8f7; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.85rem;">
+            <!-- Summary info will be injected here -->
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem;">
+            <button class="btn btn-secondary" onclick="document.getElementById('master-data-input').click()">Upload CSV</button>
+            <button class="btn btn-secondary" onclick="viewMasterData()">View Sample</button>
+            <button class="btn btn-danger" onclick="clearMasterData()" style="grid-column: span 2;">Clear All Master Data</button>
+        </div>
+
+        <div id="master-data-sample-area" class="hidden" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+            <h4 style="font-size: 0.75rem; color: var(--secondary-color); text-transform: uppercase; margin-bottom: 0.5rem;">Sample Records (First 10)</h4>
+            <div id="master-data-sample-list" style="max-height: 150px; overflow-y: auto; background: white; border: 1px solid #eee; padding: 8px; border-radius: 4px;"></div>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+            <button class="btn btn-primary" onclick="closeMasterDataModal()">Close</button>
+        </div>
+    </div>
+</div>
+
 <!-- Dashboard Modal -->
 <div id="dashboard-modal" class="modal-overlay">
     <div class="modal-content card" style="max-width: 800px;">
@@ -627,6 +670,21 @@
         </div>
         <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
             <button class="btn btn-primary" onclick="closeDashboard()">Close Dashboard</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Delete Modal -->
+<div id="delete-pallet-modal" class="modal-overlay">
+    <div class="modal-content card">
+        <h3>Bulk Delete by Pallet #</h3>
+        <p style="font-size: 0.85rem; color: var(--secondary-color); margin-bottom: 1rem;">Select the pallets you wish to permanently delete:</p>
+        <div id="pallet-checkbox-list" class="radio-group" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; background: #fff;">
+            <!-- Checkboxes will be injected here -->
+        </div>
+        <div style="margin-top: 1.5rem; display: flex; gap: 10px; justify-content: flex-end;">
+            <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+            <button class="btn btn-danger" onclick="processBulkDelete()">Delete Selected</button>
         </div>
     </div>
 </div>
@@ -704,7 +762,9 @@
             store.clear();
 
             transaction.oncomplete = function() {
+                localStorage.removeItem('master_data_last_upload');
                 showToast('Master data cleared successfully!');
+                if (document.getElementById('master-data-modal').style.display === 'flex') updateMasterDataModalInfo();
                 updateMasterDataCountBadge();
             };
         }
@@ -861,7 +921,9 @@
             }
             
             transaction.oncomplete = function() {
+                localStorage.setItem('master_data_last_upload', new Date().toLocaleString());
                 showToast(`Loaded ${count} products into Database!`);
+                if (document.getElementById('master-data-modal').style.display === 'flex') updateMasterDataModalInfo();
                 updateMasterDataCountBadge();
             };
         };
@@ -916,9 +978,74 @@
             const count = request.result;
             badge.textContent = count;
             badge.style.display = count > 0 ? 'inline-block' : 'none';
+            
+            const lastUpload = localStorage.getItem('master_data_last_upload');
+            const wrapper = document.querySelector('.master-data-btn-wrapper');
+            if (wrapper) {
+                wrapper.title = count > 0 ? `Lines: ${count}\nUploaded: ${lastUpload || 'Unknown'}` : 'No Master Data Loaded';
+            }
         };
         request.onerror = function() {
             badge.style.display = 'none';
+        };
+    }
+
+    function openMasterDataModal() {
+        updateMasterDataModalInfo();
+        document.getElementById('master-data-sample-area').classList.add('hidden');
+        document.getElementById('master-data-modal').style.display = 'flex';
+    }
+
+    function closeMasterDataModal() {
+        document.getElementById('master-data-modal').style.display = 'none';
+    }
+
+    function updateMasterDataModalInfo() {
+        const infoDiv = document.getElementById('master-data-info');
+        const lastUpload = localStorage.getItem('master_data_last_upload') || 'Never';
+        
+        if (!db) {
+            infoDiv.innerHTML = 'Database not initialized.';
+            return;
+        }
+
+        const transaction = db.transaction(["masterData"], "readonly");
+        const store = transaction.objectStore("masterData");
+        const request = store.count();
+
+        request.onsuccess = function() {
+            const count = request.result;
+            infoDiv.innerHTML = `
+                <div style="margin-bottom: 5px;"><strong>Total Records:</strong> ${count.toLocaleString()}</div>
+                <div><strong>Last Upload:</strong> ${lastUpload}</div>
+            `;
+        };
+    }
+
+    function viewMasterData() {
+        if (!db) return;
+        const transaction = db.transaction(["masterData"], "readonly");
+        const store = transaction.objectStore("masterData");
+        const request = store.openCursor();
+        const sampleArea = document.getElementById('master-data-sample-area');
+        const list = document.getElementById('master-data-sample-list');
+        
+        list.innerHTML = '';
+        let count = 0;
+        
+        request.onsuccess = function(event) {
+            const cursor = event.target.result;
+            if (cursor && count < 10) {
+                const item = cursor.value;
+                list.innerHTML += `<div style="font-size: 0.75rem; padding: 4px 0; border-bottom: 1px solid #f0f0f0;">
+                    <strong>${item.barcode}</strong> - ${item.name || item.productname || 'Unnamed Product'}
+                </div>`;
+                count++;
+                cursor.continue();
+            } else if (count === 0) {
+                list.innerHTML = '<div style="font-size: 0.8rem; color: #999;">No data found.</div>';
+            }
+            sampleArea.classList.remove('hidden');
         };
     }
 
@@ -958,7 +1085,7 @@
             
             if (e.key === 'F2') {
                 e.preventDefault();
-                document.getElementById('master-data-input').click();
+                openMasterDataModal();
             } else if (e.key === 'F4') {
                 e.preventDefault();
                 exportToCSV();
@@ -1218,20 +1345,52 @@
     }
 
     function bulkDeleteByPallet() {
-        const palletNum = prompt('Enter Pallet # to delete all related records:');
-        if (!palletNum) return;
+        if (entries.length === 0) {
+            showToast('No data available to delete.');
+            return;
+        }
 
-        if (confirm(`Are you sure you want to delete ALL records for Pallet #${palletNum}?`)) {
+        const modal = document.getElementById('delete-pallet-modal');
+        const listContainer = document.getElementById('pallet-checkbox-list');
+        
+        // Get unique pallets from current entries
+        const uniquePallets = [...new Set(entries.map(e => e.pallet))].filter(p => p).sort();
+        
+        if (uniquePallets.length === 0) {
+            showToast('No pallets found in data.');
+            return;
+        }
+
+        listContainer.innerHTML = uniquePallets.map(p => `
+            <label class="radio-option">
+                <input type="checkbox" name="pallet-to-delete" value="${p}"> 
+                Pallet #${p}
+            </label>
+        `).join('');
+
+        modal.style.display = 'flex';
+    }
+
+    function closeDeleteModal() {
+        document.getElementById('delete-pallet-modal').style.display = 'none';
+    }
+
+    function processBulkDelete() {
+        const checkboxes = document.querySelectorAll('input[name="pallet-to-delete"]:checked');
+        const selectedPallets = Array.from(checkboxes).map(cb => cb.value);
+
+        if (selectedPallets.length === 0) {
+            alert('Please select at least one pallet.');
+            return;
+        }
+
+        if (confirm(`Are you sure you want to delete ALL records for ${selectedPallets.length} selected pallet(s)? This action cannot be undone.`)) {
             const countBefore = entries.length;
-            entries = entries.filter(item => item.pallet !== palletNum);
+            entries = entries.filter(item => !selectedPallets.includes(item.pallet));
             const countAfter = entries.length;
-
-            if (countBefore === countAfter) {
-                showToast(`No records found for Pallet #${palletNum}`);
-            } else {
-                saveAndRender();
-                showToast(`Deleted ${countBefore - countAfter} records for Pallet #${palletNum}`);
-            }
+            saveAndRender();
+            showToast(`Deleted ${countBefore - countAfter} records.`);
+            closeDeleteModal();
         }
     }
 
