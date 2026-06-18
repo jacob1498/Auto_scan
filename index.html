@@ -687,6 +687,15 @@
         <div id="pallet-checkbox-list" class="radio-group" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--border-color); padding: 10px; border-radius: 4px; background: #fff;">
             <!-- Checkboxes will be injected here -->
         </div>
+        <div class="form-group" style="margin-top: 1.5rem;">
+            <label>Confirm Access Key</label>
+            <input type="password" id="bulk-delete-access-key" required placeholder="Enter access password to confirm">
+            <div style="display: flex; align-items: center; gap: 5px; margin-top: 5px;">
+                <input type="checkbox" id="toggle-bulk-delete-password" style="width: auto; margin: 0;">
+                <label for="toggle-bulk-delete-password" style="display: inline; margin: 0; font-weight: normal; cursor: pointer; font-size: 0.8rem;">Show Access Key</label>
+            </div>
+        </div>
+
         <div style="margin-top: 1.5rem; display: flex; gap: 10px; justify-content: flex-end;">
             <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
             <button class="btn btn-danger" onclick="processBulkDelete()">Delete Selected</button>
@@ -739,7 +748,7 @@
     // Simple hardcoded password (for demonstration - change this!)
     // Note: A determined user can find this in the source, 
     // but it stops simple access.
-    const APP_ACCESS_PASSWORD = "MySecretApp2024";
+    const APP_ACCESS_PASSWORD = "EDC2026";
 
     function init() {
         initIndexedDB();
@@ -754,6 +763,12 @@
         setupEnterKeyNavigation();
         setupGlobalShortcuts();
         updateMasterDataCountBadge(); // Initial call
+
+        // Event listener for bulk delete password toggle
+        document.getElementById('toggle-bulk-delete-password').addEventListener('change', function() {
+            const accessKeyInput = document.getElementById('bulk-delete-access-key');
+            accessKeyInput.type = this.checked ? 'text' : 'password';
+        });
     }
 
     function clearMasterData() {
@@ -1426,6 +1441,10 @@
     }
 
     function closeDeleteModal() {
+        // Clear the access key field and reset toggle when modal closes
+        document.getElementById('bulk-delete-access-key').value = '';
+        document.getElementById('toggle-bulk-delete-password').checked = false;
+        document.getElementById('bulk-delete-access-key').type = 'password';
         document.getElementById('delete-pallet-modal').style.display = 'none';
     }
 
@@ -1436,6 +1455,13 @@
         if (selectedPallets.length === 0) {
             alert('Please select at least one pallet.');
             return;
+        }
+
+        const enteredAccessKey = document.getElementById('bulk-delete-access-key').value;
+
+        if (enteredAccessKey !== APP_ACCESS_PASSWORD) {
+            showToast('Invalid Access Key for Bulk Deletion!');
+            return; // Stop the deletion process
         }
 
         if (confirm(`Are you sure you want to delete ALL records for ${selectedPallets.length} selected pallet(s)? This action cannot be undone.`)) {
