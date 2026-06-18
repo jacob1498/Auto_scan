@@ -359,6 +359,11 @@
             border-color: var(--danger-color) !important;
             background-color: #fff5f5 !important;
         }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -457,6 +462,7 @@
                         <div class="form-group span-2">
                             <label>Barcode</label>
                             <input type="text" id="barcode" required placeholder="Scan Barcode" oninput="handleBarcodeLookup()">
+                            <small id="barcode-warning" class="hidden" style="color: var(--danger-color); font-weight: 600; margin-top: 4px; display: block;">⚠️ Barcode not found in Master Data!</small>
                         </div>
                         
                         <!-- Row 4: Product Info (Read-only) -->
@@ -635,6 +641,11 @@
             <button class="btn btn-secondary" onclick="document.getElementById('master-data-input').click()">Upload CSV</button>
             <button class="btn btn-secondary" onclick="viewMasterData()">View Sample</button>
             <button class="btn btn-danger" onclick="clearMasterData()" style="grid-column: span 2;">Clear All Master Data</button>
+        </div>
+
+        <div id="import-progress-container" class="hidden" style="margin-bottom: 1.5rem; text-align: center; padding: 15px; background: #f0f7ff; border: 1px dashed var(--primary-color); border-radius: 6px;">
+            <div style="border: 3px solid #f3f3f3; border-top: 3px solid var(--primary-color); border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; margin: 0 auto 10px;"></div>
+            <div id="import-progress-text" style="font-size: 0.85rem; font-weight: 600; color: var(--primary-color);">Importing: 0%</div>
         </div>
 
         <div class="form-group" style="margin-bottom: 1rem;">
@@ -932,6 +943,10 @@
     function importMasterData(event) {
         const file = event.target.files[0];
         if (!file || !db) return;
+        
+        const progressContainer = document.getElementById('import-progress-container');
+        const progressText = document.getElementById('import-progress-text');
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             const text = e.target.result;
@@ -939,33 +954,52 @@
             if (rows.length < 2) return;
 
             const headers = parseCSVRow(rows[0]).map(h => h.toLowerCase());
+            
+            progressContainer.classList.remove('hidden');
+            progressText.textContent = "Processing file...";
+
             const transaction = db.transaction(["masterData"], "readwrite");
             const store = transaction.objectStore("masterData");
             
-            // Clear existing master data for a fresh import
             store.clear();
             
-            let count = 0;
+            const validRows = [];
             for (let i = 1; i < rows.length; i++) {
                 const values = parseCSVRow(rows[i]);
                 if (values.length < 2) continue;
-                
                 const entry = {};
                 headers.forEach((h, idx) => {
                     if (h) entry[h] = values[idx] || '';
                 });
-                
-                if (entry.barcode) {
-                    store.put(entry);
-                    count++;
-                }
+                if (entry.barcode) validRows.push(entry);
             }
             
+            let successCount = 0;
+            const totalToImport = validRows.length;
+
+            validRows.forEach(entry => {
+                const request = store.put(entry);
+                request.onsuccess = () => {
+                    successCount++;
+                    if (successCount % 50 === 0 || successCount === totalToImport) {
+                        const percent = Math.round((successCount / totalToImport) * 100);
+                        progressText.textContent = `Importing: ${percent}% (${successCount}/${totalToImport})`;
+                    }
+                };
+            });
+
             transaction.oncomplete = function() {
                 localStorage.setItem('master_data_last_upload', new Date().toLocaleString());
-                showToast(`Loaded ${count} products into Database!`);
+                showToast(`Loaded ${successCount} products into Database!`);
+                progressContainer.classList.add('hidden');
                 if (document.getElementById('master-data-modal').style.display === 'flex') updateMasterDataModalInfo();
                 updateMasterDataCountBadge();
+                event.target.value = ''; // Reset file input to allow re-uploading the same file
+            };
+
+            transaction.onerror = function() {
+                showToast('Import failed.');
+                progressContainer.classList.add('hidden');
             };
         };
         reader.readAsText(file);
@@ -978,11 +1012,13 @@
         const skuField = document.getElementById('sku');
         const returnTypeField = document.getElementById('return-type');
         const supplierField = document.getElementById('supplier-name');
+        const warningEl = document.getElementById('barcode-warning');
 
         if (!db) return;
 
         if (barcode === "") {
             barcodeEl.classList.remove('invalid-barcode');
+            warningEl.classList.add('hidden');
             nameField.value = '';
             skuField.value = '';
             returnTypeField.value = '';
@@ -998,6 +1034,7 @@
             const result = request.result;
             if (result) {
                 barcodeEl.classList.remove('invalid-barcode');
+                warningEl.classList.add('hidden');
                 nameField.value = result.name || result.productname || result.description || Object.values(result)[1] || '';
                 skuField.value = result.sku || '';
                 returnTypeField.value = result.returntype || result['return type'] || '';
@@ -1008,6 +1045,7 @@
                 }
             } else {
                 barcodeEl.classList.add('invalid-barcode');
+                warningEl.classList.remove('hidden');
                 nameField.value = '';
                 skuField.value = '';
                 returnTypeField.value = '';
@@ -1595,6 +1633,7 @@
             document.getElementById('time').value = item.time;
             document.getElementById('barcode').value = item.barcode;
             document.getElementById('barcode').classList.remove('invalid-barcode');
+            document.getElementById('barcode-warning').classList.add('hidden');
             document.getElementById('product-name').value = item.productName || '';
             document.getElementById('sku').value = item.sku || '';
             document.getElementById('return-type').value = item.returnType || '';
@@ -1645,6 +1684,7 @@
         
         dataForm.reset();
         document.getElementById('barcode').classList.remove('invalid-barcode');
+        document.getElementById('barcode-warning').classList.add('hidden');
         document.getElementById('edit-id').value = '';
         document.getElementById('save-btn').textContent = 'Add Entry';
         document.getElementById('cancel-btn').classList.add('hidden');
