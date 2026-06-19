@@ -639,8 +639,26 @@
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem;">
             <button class="btn btn-secondary" onclick="document.getElementById('master-data-input').click()">Upload CSV</button>
+            <button class="btn btn-secondary" onclick="toggleManualMasterForm()">Manual Entry</button>
             <button class="btn btn-secondary" onclick="viewMasterData()">View Sample</button>
             <button class="btn btn-danger" onclick="clearMasterData()" style="grid-column: span 2;">Clear All Master Data</button>
+            <button class="btn btn-danger" onclick="clearMasterData()">Clear All Data</button>
+        </div>
+
+        <!-- Manual Entry Form -->
+        <div id="manual-master-form" class="hidden" style="margin-bottom: 1.5rem; padding: 1rem; border: 1px solid var(--border-color); border-radius: 6px; background: #faf9f8;">
+            <h4 style="margin-top:0; font-size: 0.9rem; color: var(--primary-color);">Add New Product</h4>
+            <div class="grid-form" style="grid-template-columns: 1fr; gap: 5px;">
+                 <div class="form-group"><label>Barcode*</label><input type="text" id="m-barcode" placeholder="Scan or type barcode"></div>
+                 <div class="form-group"><label>Product Name*</label><input type="text" id="m-name" placeholder="Item description"></div>
+                 <div class="form-group"><label>SKU</label><input type="text" id="m-sku"></div>
+                 <div class="form-group"><label>Return Type</label><input type="text" id="m-return"></div>
+                 <div class="form-group"><label>Supplier Name</label><input type="text" id="m-supplier"></div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                <button class="btn btn-success" style="flex:1; padding: 0.5rem;" onclick="saveManualMasterEntry()">Save Product</button>
+                <button class="btn btn-secondary" style="flex:1; padding: 0.5rem;" onclick="toggleManualMasterForm()">Cancel</button>
+            </div>
         </div>
 
         <div id="import-progress-container" class="hidden" style="margin-bottom: 1.5rem; text-align: center; padding: 15px; background: #f0f7ff; border: 1px dashed var(--primary-color); border-radius: 6px;">
@@ -1046,6 +1064,14 @@
             } else {
                 barcodeEl.classList.add('invalid-barcode');
                 warningEl.classList.remove('hidden');
+                // Only show the "Not Found" warning if the user has typed at least 3 characters
+                if (barcode.length >= 3) {
+                    barcodeEl.classList.add('invalid-barcode');
+                    warningEl.classList.remove('hidden');
+                } else {
+                    barcodeEl.classList.remove('invalid-barcode');
+                    warningEl.classList.add('hidden');
+                }
                 nameField.value = '';
                 skuField.value = '';
                 returnTypeField.value = '';
@@ -1086,6 +1112,7 @@
         if (searchInput) searchInput.value = '';
         updateMasterDataModalInfo();
         document.getElementById('master-data-sample-area').classList.add('hidden');
+        document.getElementById('manual-master-form').classList.add('hidden');
         document.getElementById('master-data-modal').style.display = 'flex';
     }
 
@@ -1141,6 +1168,55 @@
                 list.innerHTML = '<div style="font-size: 0.8rem; color: #999;">No data found.</div>';
             }
             sampleArea.classList.remove('hidden');
+        };
+    }
+
+    function toggleManualMasterForm() {
+        const form = document.getElementById('manual-master-form');
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) {
+            document.getElementById('m-barcode').focus();
+            document.getElementById('master-data-sample-area').classList.add('hidden');
+        }
+    }
+
+    function saveManualMasterEntry() {
+        const barcode = document.getElementById('m-barcode').value.trim();
+        const name = document.getElementById('m-name').value.trim();
+        const sku = document.getElementById('m-sku').value.trim();
+        const ret = document.getElementById('m-return').value.trim();
+        const sup = document.getElementById('m-supplier').value.trim();
+
+        if (!barcode || !name) {
+            showToast('Barcode and Product Name are required!');
+            return;
+        }
+
+        if (!db) return;
+
+        const entry = {
+            barcode: barcode,
+            name: name,
+            sku: sku,
+            returntype: ret,
+            suppliername: sup
+        };
+
+        const transaction = db.transaction(["masterData"], "readwrite");
+        const store = transaction.objectStore("masterData");
+        const request = store.put(entry);
+
+        request.onsuccess = function() {
+            showToast('Product added to Master Data!');
+            updateMasterDataCountBadge();
+            updateMasterDataModalInfo();
+            // Clear inputs
+            ['m-barcode', 'm-name', 'm-sku', 'm-return', 'm-supplier'].forEach(id => document.getElementById(id).value = '');
+            toggleManualMasterForm();
+        };
+
+        request.onerror = function() {
+            showToast('Error saving to Master Data.');
         };
     }
 
